@@ -12,6 +12,7 @@ Persistent
 ; ============================================================
 ; 全局设置
 ; ============================================================
+global VERSION := "1.1.0"
 global capsShowDuration := 800    ; 大小写提示显示时间
 global copyShowDuration := 800    ; 复制提示显示时间
 global lastCapsState := GetKeyState("CapsLock", "T")
@@ -21,13 +22,14 @@ global configPath := A_ScriptDir . "\config.ini"
 global enableCapsTip := true      ; 启用大小写提示
 global enableCopyTip := true      ; 启用复制提示
 global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央
+global tipMouseOffset := 2        ; 鼠标附近时的偏移距离(像素)
 global tipFontSize := 9           ; 字体大小
 global tipFontBold := true        ; 字体加粗
 
 ; 提示 GUI
 global tipGui := ""
 
-A_TrayTip := "CapsCopyTip v1.1.0 - 大小写+输入法+复制提示"
+A_TrayTip := "CapsCopyTip v" . VERSION . " - 大小写+输入法+复制提示"
 
 ; ============================================================
 ; 托盘菜单设置
@@ -81,6 +83,7 @@ LoadConfig() {
         enableCapsTip := IniRead(configPath, "Settings", "EnableCapsTip", 1) = 1
         enableCopyTip := IniRead(configPath, "Settings", "EnableCopyTip", 1) = 1
         tipPosition := Integer(IniRead(configPath, "Settings", "TipPosition", 1))
+        tipMouseOffset := IniRead(configPath, "Settings", "TipMouseOffset", 2)
         tipFontSize := IniRead(configPath, "Settings", "TipFontSize", 9)
         tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 1) = 1
     } catch {
@@ -97,6 +100,7 @@ SaveConfig() {
         IniWrite(enableCapsTip ? 1 : 0, configPath, "Settings", "EnableCapsTip")
         IniWrite(enableCopyTip ? 1 : 0, configPath, "Settings", "EnableCopyTip")
         IniWrite(tipPosition, configPath, "Settings", "TipPosition")
+        IniWrite(tipMouseOffset, configPath, "Settings", "TipMouseOffset")
         IniWrite(tipFontSize, configPath, "Settings", "TipFontSize")
         IniWrite(tipFontBold ? 1 : 0, configPath, "Settings", "TipFontBold")
     } catch as e {
@@ -148,7 +152,7 @@ SetStartup(enable) {
 ShowSettings(*) {
     global
 
-    settingsGui := Gui("+Owner", "CapsCopyTip v1.1.0")
+    settingsGui := Gui("+Owner", "CapsCopyTip v" . VERSION)
     settingsGui.SetFont("s10", "Microsoft YaHei")
 
     ; === 功能开关 ===
@@ -170,7 +174,9 @@ ShowSettings(*) {
     ; === 提示位置 ===
     settingsGui.Add("GroupBox", "x10 y160 w300 h50", "提示位置")
     posRadio1 := settingsGui.Add("Radio", "x20 y180 w100" . (tipPosition = 1 ? " Checked" : ""), "鼠标附近")
-    posRadio2 := settingsGui.Add("Radio", "x130 y180 w100" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
+    posRadio2 := settingsGui.Add("Radio", "x130 y180 w80" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
+    settingsGui.Add("Text", "x220 y180 w30", "偏移:")
+    offsetEdit := settingsGui.Add("Edit", "x255 y177 w40", tipMouseOffset)
 
     ; === 字体样式 ===
     settingsGui.Add("GroupBox", "x10 y215 w300 h50", "字体样式")
@@ -194,13 +200,14 @@ ShowSettings(*) {
         capsEdit.Value := 800
         copyEdit.Value := 800
         posRadio1.Value := true
+        offsetEdit.Value := 2
         fontSizeEdit.Value := 9
         boldCheck.Value := true
     }
 
     SaveAndClose(*) {
         global enableCapsTip, enableCopyTip, capsShowDuration, copyShowDuration
-        global tipPosition, tipFontSize, tipFontBold
+        global tipPosition, tipMouseOffset, tipFontSize, tipFontBold
 
         ; 保存功能开关
         enableCapsTip := capsCheck.Value
@@ -220,6 +227,9 @@ ShowSettings(*) {
             tipPosition := 2
         else
             tipPosition := 1  ; 默认鼠标附近
+
+        ; 保存鼠标偏移
+        tipMouseOffset := Max(0, Min(100, Integer(offsetEdit.Value || 2)))
 
         ; 保存字体样式
         tipFontSize := Max(8, Min(72, Integer(fontSizeEdit.Value || 9)))
@@ -259,7 +269,7 @@ ApplySettings() {
 ; 显示自定义提示（替代 ToolTip）
 ; ============================================================
 ShowTip(text, duration := 0) {
-    global tipGui, tipPosition, tipFontSize, tipFontBold
+    global tipGui, tipPosition, tipMouseOffset, tipFontSize, tipFontBold
     static tipText := ""
 
     ; 获取鼠标位置（使用屏幕坐标）
@@ -280,8 +290,8 @@ ShowTip(text, duration := 0) {
 
         ; 计算位置
         if (tipPosition = 1) {
-            gx := mx + 2
-            gy := my + 2
+            gx := mx + tipMouseOffset
+            gy := my + tipMouseOffset
         } else {
             gx := (A_ScreenWidth - gw) / 2
             gy := (A_ScreenHeight - gh) / 2
@@ -310,8 +320,8 @@ ShowTip(text, duration := 0) {
 
         ; 计算位置
         if (tipPosition = 1) {
-            gx := mx + 2
-            gy := my + 2
+            gx := mx + tipMouseOffset
+            gy := my + tipMouseOffset
         } else {
             gx := (A_ScreenWidth - gw) / 2
             gy := (A_ScreenHeight - gh) / 2
