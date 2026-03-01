@@ -1,4 +1,4 @@
-; ============================================================
+﻿; ============================================================
 ; AllInOneNotification.ahk (AutoHotkey v2)
 ; 功能：合并大小写提示 + 复制提示
 ; - 大小写/输入法：🔒 大写 | 中 / 🔓 小写 | 英
@@ -162,9 +162,9 @@ ShowSettings(*) {
 
     ; === 显示时长 ===
     settingsGui.Add("GroupBox", "x10 y85 w300 h70", "显示时长")
-    settingsGui.Add("Text", "x20 y105 w150", "大小写提示 (毫秒):")
+    settingsGui.Add("Text", "x20 y105 w150", "大小写提示 (ms):")
     capsEdit := settingsGui.Add("Edit", "x180 y102 w60", capsShowDuration)
-    settingsGui.Add("Text", "x20 y130 w150", "复制提示 (毫秒):")
+    settingsGui.Add("Text", "x20 y130 w150", "复制提示 (ms):")
     copyEdit := settingsGui.Add("Edit", "x180 y127 w60", copyShowDuration)
 
     ; === 提示位置 ===
@@ -250,25 +250,32 @@ ShowTip(text, duration := 0) {
     CoordMode "Mouse", "Screen"
     MouseGetPos(&mx, &my)
 
-    ; 如果 GUI 已存在，更新内容和位置
-    if (IsObject(tipGui)) {
+    ; 如果 GUI 已存在且窗口有效，更新内容和位置
+    if (IsObject(tipGui) && WinExist("ahk_id " . tipGui.Hwnd)) {
+        ; 禁用重绘，避免闪烁
+        SendMessage(0xB, 0, 0, , "ahk_id " . tipGui.Hwnd)
+
+        ; 更新文本
         tipText.Value := "  " . text . "  "
 
-        ; 先隐藏显示以获取正确尺寸（AutoSize 在隐藏状态下也能工作）
+        ; 先隐藏状态下获取新尺寸
         tipGui.Show("Hide AutoSize")
         tipGui.GetPos(,, &gw, &gh)
 
         ; 计算位置
         if (tipPosition = 1) {
-            gx := mx + 5
-            gy := my + 5
+            gx := mx + 2
+            gy := my + 2
         } else {
             gx := (A_ScreenWidth - gw) / 2
             gy := (A_ScreenHeight - gh) / 2
         }
 
-        ; 直接在指定位置显示
+        ; 直接在目标位置显示
         tipGui.Show("x" . gx . " y" . gy . " NA")
+
+        ; 启用重绘
+        SendMessage(0xB, 1, 0, , "ahk_id " . tipGui.Hwnd)
     } else {
         ; 创建提示窗口
         tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
@@ -287,14 +294,14 @@ ShowTip(text, duration := 0) {
 
         ; 计算位置
         if (tipPosition = 1) {
-            gx := mx + 5
-            gy := my + 5
+            gx := mx + 2
+            gy := my + 2
         } else {
             gx := (A_ScreenWidth - gw) / 2
             gy := (A_ScreenHeight - gh) / 2
         }
 
-        ; 显示提示
+        ; 直接在指定位置显示
         tipGui.Show("x" . gx . " y" . gy . " NA")
     }
 
