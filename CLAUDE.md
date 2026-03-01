@@ -136,3 +136,31 @@ ApplySettings() {
 ### static 控件引用问题
 
 `static tipText` 保留的是控件引用，GUI 销毁后引用失效。配合窗口有效性检查使用，或在重建 GUI 时重新赋值。
+
+### 嵌套函数中的全局变量声明
+
+嵌套函数（函数内定义的函数）中使用 `global` 声明可能无法正确修改脚本级全局变量。
+
+**错误做法**：
+```autohotkey
+ShowSettings(*) {
+    global
+
+    SaveAndClose(*) {
+        global  ; 可能无法正确修改脚本级变量！
+        tipPosition := 2
+    }
+}
+```
+
+**正确做法**：显式声明需要修改的全局变量
+```autohotkey
+ShowSettings(*) {
+    global
+
+    SaveAndClose(*) {
+        global tipPosition, tipFontSize, tipFontBold  ; 显式声明
+        tipPosition := 2
+    }
+}
+```
