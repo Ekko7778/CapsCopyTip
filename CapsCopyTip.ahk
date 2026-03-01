@@ -1,5 +1,5 @@
 ﻿; ============================================================
-; AllInOneNotification.ahk (AutoHotkey v2)
+; CapsCopyTip v1.1.0 (AutoHotkey v2)
 ; 功能：合并大小写提示 + 复制提示
 ; - 大小写/输入法：🔒 大写 | 中 / 🔓 小写 | 英
 ; - 复制提示：显示复制的字符数/图片/文件数
@@ -21,13 +21,13 @@ global configPath := A_ScriptDir . "\config.ini"
 global enableCapsTip := true      ; 启用大小写提示
 global enableCopyTip := true      ; 启用复制提示
 global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央
-global tipFontSize := 14          ; 字体大小
+global tipFontSize := 9           ; 字体大小
 global tipFontBold := false       ; 字体加粗
 
 ; 提示 GUI
 global tipGui := ""
 
-A_TrayTip := "大小写+输入法+复制提示"
+A_TrayTip := "CapsCopyTip v1.1.0 - 大小写+输入法+复制提示"
 
 ; ============================================================
 ; 托盘菜单设置
@@ -81,7 +81,7 @@ LoadConfig() {
         enableCapsTip := IniRead(configPath, "Settings", "EnableCapsTip", 1) = 1
         enableCopyTip := IniRead(configPath, "Settings", "EnableCopyTip", 1) = 1
         tipPosition := Integer(IniRead(configPath, "Settings", "TipPosition", 1))
-        tipFontSize := IniRead(configPath, "Settings", "TipFontSize", 14)
+        tipFontSize := IniRead(configPath, "Settings", "TipFontSize", 9)
         tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 0) = 1
     } catch {
         ; 读取失败，使用默认值
@@ -113,10 +113,10 @@ IsStartupEnabled() {
     if (A_IsCompiled)
         exePath := A_ScriptFullPath
     else
-        exePath := A_ScriptDir . "\AllInOneNotification.exe"
+        exePath := A_ScriptDir . "\CapsCopyTip.exe"
 
     try {
-        regValue := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "AllInOneNotification", "")
+        regValue := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip", "")
         return InStr(regValue, exePath) > 0
     } catch {
         return false
@@ -125,17 +125,17 @@ IsStartupEnabled() {
 
 SetStartup(enable) {
     global
-    exePath := A_ScriptDir . "\AllInOneNotification.exe"
+    exePath := A_ScriptDir . "\CapsCopyTip.exe"
 
     if (enable) {
         try {
-            RegWrite(exePath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "AllInOneNotification")
+            RegWrite(exePath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip")
         } catch as e {
             MsgBox("设置开机启动失败：" . e.Message, "错误", 16)
         }
     } else {
         try {
-            RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "AllInOneNotification")
+            RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip")
         } catch {
             ; 键不存在，忽略
         }
@@ -148,7 +148,7 @@ SetStartup(enable) {
 ShowSettings(*) {
     global
 
-    settingsGui := Gui("+Owner", "设置")
+    settingsGui := Gui("+Owner", "CapsCopyTip v1.1.0")
     settingsGui.SetFont("s10", "Microsoft YaHei")
 
     ; === 功能开关 ===
@@ -206,7 +206,7 @@ ShowSettings(*) {
             tipPosition := 1  ; 默认鼠标附近
 
         ; 保存字体样式
-        tipFontSize := Max(8, Min(72, Integer(fontSizeEdit.Value || 14)))
+        tipFontSize := Max(8, Min(72, Integer(fontSizeEdit.Value || 9)))
         tipFontBold := boldCheck.Value
 
         ; 应用设置
