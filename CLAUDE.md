@@ -31,6 +31,11 @@ rm -f /d/Desktop/test/AllInOneNotification.exe && \
 
 > ⚠️ 在 Git Bash 下必须用 `//` 双斜杠，单斜杠会被吃掉
 
+**编译流程**：
+1. 修改代码后，先让用户测试 `.ahk` 脚本
+2. 用户确认没问题后，再执行编译
+3. 不要自作主张提前编译
+
 ---
 
 ## 开发笔记
@@ -61,4 +66,19 @@ capsEdit.OnEvent("Change", (*) => capsEdit.Value := Max(100, capsEdit.Value))
 SaveAndClose(*) {
     capsShowDuration := Max(100, Integer(capsEdit.Value || 800))
 }
+```
+
+### GUI 控件初始值设置
+
+`Gui.Add()` 不支持第四个参数设置初始值，需要先创建再设置 `.Value`：
+
+**错误做法**：
+```autohotkey
+capsCheck := settingsGui.Add("CheckBox", "x20 y30", "大小写提示", enableCapsTip)
+```
+
+**正确做法**：
+```autohotkey
+capsCheck := settingsGui.Add("CheckBox", "x20 y30", "大小写提示")
+capsCheck.Value := enableCapsTip
 ```

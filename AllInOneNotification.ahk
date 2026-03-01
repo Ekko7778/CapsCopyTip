@@ -17,17 +17,24 @@ global copyShowDuration := 800    ; 复制提示显示时间
 global lastCapsState := GetKeyState("CapsLock", "T")
 global configPath := A_ScriptDir . "\config.ini"
 
+; 新增设置
+global enableCapsTip := true      ; 启用大小写提示
+global enableCopyTip := true      ; 启用复制提示
+global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央
+global tipFontSize := 14          ; 字体大小
+global tipFontBold := false       ; 字体加粗
+
+; 提示 GUI
+global tipGui := ""
+
 A_TrayTip := "大小写+输入法+复制提示"
 
 ; ============================================================
 ; 托盘菜单设置
 ; ============================================================
-; 删除默认菜单项
 A_TrayMenu.Delete()
-
-; 添加自定义菜单项
 A_TrayMenu.Add("⚙ 设置", ShowSettings)
-A_TrayMenu.Add()  ; 分隔线
+A_TrayMenu.Add()
 A_TrayMenu.Add("🔄 重启", (*) => Reload())
 A_TrayMenu.Add("❌ 退出", (*) => ExitApp())
 
@@ -39,17 +46,23 @@ LoadConfig()
 ; ============================================================
 ; 大小写监听
 ; ============================================================
-SetTimer(CheckCapsLock, 30)
+if (enableCapsTip) {
+    SetTimer(CheckCapsLock, 30)
+}
 
 ~Shift:: {
-    KeyWait("Shift")
-    ShowCapsStatus()
+    if (enableCapsTip) {
+        KeyWait("Shift")
+        ShowCapsStatus()
+    }
 }
 
 ; ============================================================
 ; 复制监听
 ; ============================================================
-OnClipboardChange(ClipChanged)
+if (enableCopyTip) {
+    OnClipboardChange(ClipChanged)
+}
 
 return
 
@@ -57,28 +70,75 @@ return
 ; 配置管理
 ; ============================================================
 LoadConfig() {
-    global capsShowDuration, copyShowDuration, configPath
+    global
 
-    ; 如果配置文件不存在，使用默认值
     if !FileExist(configPath)
         return
 
     try {
         capsShowDuration := IniRead(configPath, "Settings", "CapsShowDuration", 800)
         copyShowDuration := IniRead(configPath, "Settings", "CopyShowDuration", 800)
+        enableCapsTip := IniRead(configPath, "Settings", "EnableCapsTip", 1) = 1
+        enableCopyTip := IniRead(configPath, "Settings", "EnableCopyTip", 1) = 1
+        tipPosition := Integer(IniRead(configPath, "Settings", "TipPosition", 1))
+        tipFontSize := IniRead(configPath, "Settings", "TipFontSize", 14)
+        tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 0) = 1
     } catch {
         ; 读取失败，使用默认值
     }
 }
 
 SaveConfig() {
-    global capsShowDuration, copyShowDuration, configPath
+    global
 
     try {
         IniWrite(capsShowDuration, configPath, "Settings", "CapsShowDuration")
         IniWrite(copyShowDuration, configPath, "Settings", "CopyShowDuration")
+        IniWrite(enableCapsTip ? 1 : 0, configPath, "Settings", "EnableCapsTip")
+        IniWrite(enableCopyTip ? 1 : 0, configPath, "Settings", "EnableCopyTip")
+        IniWrite(tipPosition, configPath, "Settings", "TipPosition")
+        IniWrite(tipFontSize, configPath, "Settings", "TipFontSize")
+        IniWrite(tipFontBold ? 1 : 0, configPath, "Settings", "TipFontBold")
     } catch as e {
         MsgBox("保存配置失败：" . e.Message, "错误", 16)
+    }
+}
+
+; ============================================================
+; 开机启动管理
+; ============================================================
+IsStartupEnabled() {
+    global
+    exePath := A_ScriptFullPath
+    if (A_IsCompiled)
+        exePath := A_ScriptFullPath
+    else
+        exePath := A_ScriptDir . "\AllInOneNotification.exe"
+
+    try {
+        regValue := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "AllInOneNotification", "")
+        return InStr(regValue, exePath) > 0
+    } catch {
+        return false
+    }
+}
+
+SetStartup(enable) {
+    global
+    exePath := A_ScriptDir . "\AllInOneNotification.exe"
+
+    if (enable) {
+        try {
+            RegWrite(exePath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "AllInOneNotification")
+        } catch as e {
+            MsgBox("设置开机启动失败：" . e.Message, "错误", 16)
+        }
+    } else {
+        try {
+            RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "AllInOneNotification")
+        } catch {
+            ; 键不存在，忽略
+        }
     }
 }
 
@@ -86,47 +146,180 @@ SaveConfig() {
 ; 设置窗口
 ; ============================================================
 ShowSettings(*) {
-    global capsShowDuration, copyShowDuration
+    global
 
-    ; 创建设置窗口
     settingsGui := Gui("+Owner", "设置")
     settingsGui.SetFont("s10", "Microsoft YaHei")
 
-    ; 大小写提示时长
-    settingsGui.Add("Text", "x20 y20 w200", "大小写提示显示时长 (毫秒):")
-    capsEdit := settingsGui.Add("Edit", "x220 y17 w80", capsShowDuration)
+    ; === 功能开关 ===
+    settingsGui.Add("GroupBox", "x10 y10 w300 h70", "功能开关")
+    capsCheck := settingsGui.Add("CheckBox", "x20 y30 w140", "大小写提示")
+    capsCheck.Value := enableCapsTip
+    copyCheck := settingsGui.Add("CheckBox", "x170 y30 w140", "复制提示")
+    copyCheck.Value := enableCopyTip
+    startupCheck := settingsGui.Add("CheckBox", "x20 y50 w200", "开机启动")
+    startupCheck.Value := IsStartupEnabled()
 
-    ; 复制提示时长
-    settingsGui.Add("Text", "x20 y60 w200", "复制提示显示时长 (毫秒):")
-    copyEdit := settingsGui.Add("Edit", "x220 y57 w80", copyShowDuration)
+    ; === 显示时长 ===
+    settingsGui.Add("GroupBox", "x10 y85 w300 h70", "显示时长")
+    settingsGui.Add("Text", "x20 y105 w150", "大小写提示 (毫秒):")
+    capsEdit := settingsGui.Add("Edit", "x180 y102 w60", capsShowDuration)
+    settingsGui.Add("Text", "x20 y130 w150", "复制提示 (毫秒):")
+    copyEdit := settingsGui.Add("Edit", "x180 y127 w60", copyShowDuration)
 
-    ; 按钮
-    settingsGui.Add("Button", "x80 y100 w80 Default", "保存").OnEvent("Click", SaveAndClose)
-    settingsGui.Add("Button", "x180 y100 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+    ; === 提示位置 ===
+    settingsGui.Add("GroupBox", "x10 y160 w300 h50", "提示位置")
+    posRadio1 := settingsGui.Add("Radio", "x20 y180 w100" . (tipPosition = 1 ? " Checked" : ""), "鼠标附近")
+    posRadio2 := settingsGui.Add("Radio", "x130 y180 w100" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
 
-    ; 保存并关闭函数
+    ; === 字体样式 ===
+    settingsGui.Add("GroupBox", "x10 y215 w300 h50", "字体样式")
+    settingsGui.Add("Text", "x20 y235 w80", "字号:")
+    fontSizeEdit := settingsGui.Add("Edit", "x70 y232 w50", tipFontSize)
+    boldCheck := settingsGui.Add("CheckBox", "x130 y235 w60", "加粗")
+    boldCheck.Value := tipFontBold
+
+    ; === 按钮 ===
+    settingsGui.Add("Button", "x100 y275 w80 Default", "保存").OnEvent("Click", SaveAndClose)
+    settingsGui.Add("Button", "x200 y275 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+
     SaveAndClose(*) {
-        global capsShowDuration, copyShowDuration
+        global
 
-        ; 验证并保存，最小值 100ms
+        ; 保存功能开关
+        enableCapsTip := capsCheck.Value
+        enableCopyTip := copyCheck.Value
+
+        ; 保存开机启动
+        SetStartup(startupCheck.Value)
+
+        ; 保存显示时长
         capsShowDuration := Max(100, Integer(capsEdit.Value || 800))
         copyShowDuration := Max(100, Integer(copyEdit.Value || 800))
 
-        SaveConfig()
-        settingsGui.Destroy()
+        ; 保存提示位置 - 检查哪个 Radio 被选中
+        if (posRadio1.Value)
+            tipPosition := 1
+        else if (posRadio2.Value)
+            tipPosition := 2
+        else
+            tipPosition := 1  ; 默认鼠标附近
 
-        ToolTip("设置已保存")
-        SetTimer(() => ToolTip(), 1500)
+        ; 保存字体样式
+        tipFontSize := Max(8, Min(72, Integer(fontSizeEdit.Value || 14)))
+        tipFontBold := boldCheck.Value
+
+        ; 应用设置
+        SaveConfig()
+        ApplySettings()
+
+        settingsGui.Destroy()
+        ShowTip("设置已保存")
     }
 
-    settingsGui.Show("w320 h150")
+    settingsGui.Show("w340 h320")
+}
+
+; ============================================================
+; 应用设置（重新注册监听）
+; ============================================================
+ApplySettings() {
+    global enableCapsTip, enableCopyTip, tipGui
+
+    ; 重新设置大小写监听
+    SetTimer(CheckCapsLock, 0)  ; 先停止
+    if (enableCapsTip) {
+        SetTimer(CheckCapsLock, 30)
+    }
+
+    ; 销毁旧的提示窗口，让下次显示时重新创建（应用新字体设置）
+    if (IsObject(tipGui)) {
+        tipGui.Destroy()
+        tipGui := ""
+    }
+}
+
+; ============================================================
+; 显示自定义提示（替代 ToolTip）
+; ============================================================
+ShowTip(text, duration := 0) {
+    global tipGui, tipPosition, tipFontSize, tipFontBold
+    static tipText := ""
+
+    ; 获取鼠标位置（使用屏幕坐标）
+    CoordMode "Mouse", "Screen"
+    MouseGetPos(&mx, &my)
+
+    ; 如果 GUI 已存在，更新内容和位置
+    if (IsObject(tipGui)) {
+        tipText.Value := "  " . text . "  "
+
+        ; 先隐藏显示以获取正确尺寸（AutoSize 在隐藏状态下也能工作）
+        tipGui.Show("Hide AutoSize")
+        tipGui.GetPos(,, &gw, &gh)
+
+        ; 计算位置
+        if (tipPosition = 1) {
+            gx := mx + 5
+            gy := my + 5
+        } else {
+            gx := (A_ScreenWidth - gw) / 2
+            gy := (A_ScreenHeight - gh) / 2
+        }
+
+        ; 直接在指定位置显示
+        tipGui.Show("x" . gx . " y" . gy . " NA")
+    } else {
+        ; 创建提示窗口
+        tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
+        tipGui.BackColor := "333333"
+        tipGui.SetFont("s" . tipFontSize . (tipFontBold ? " Bold" : ""), "Microsoft YaHei")
+        tipText := tipGui.Add("Text", "cFFFFFF Center r1", "  " . text . "  ")
+
+        ; 使用 DWM 设置圆角 (Windows 11)
+        try {
+            DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)
+        }
+
+        ; 先隐藏显示以获取正确尺寸
+        tipGui.Show("Hide AutoSize")
+        tipGui.GetPos(,, &gw, &gh)
+
+        ; 计算位置
+        if (tipPosition = 1) {
+            gx := mx + 5
+            gy := my + 5
+        } else {
+            gx := (A_ScreenWidth - gw) / 2
+            gy := (A_ScreenHeight - gh) / 2
+        }
+
+        ; 显示提示
+        tipGui.Show("x" . gx . " y" . gy . " NA")
+    }
+
+    ; 设置自动关闭
+    if (duration > 0) {
+        SetTimer(() => HideTip(), duration)
+    }
+}
+
+HideTip() {
+    global tipGui
+    if (IsObject(tipGui)) {
+        tipGui.Hide()
+    }
+    SetTimer(() => HideTip(), 0)
 }
 
 ; ============================================================
 ; CapsLock 状态检查
 ; ============================================================
 CheckCapsLock() {
-    global lastCapsState
+    global lastCapsState, enableCapsTip
+    if (!enableCapsTip)
+        return
+
     current := GetKeyState("CapsLock", "T")
     if (current != lastCapsState) {
         lastCapsState := current
@@ -138,7 +331,9 @@ CheckCapsLock() {
 ; 显示大小写+输入法状态
 ; ============================================================
 ShowCapsStatus() {
-    global capsShowDuration
+    global capsShowDuration, enableCapsTip
+    if (!enableCapsTip)
+        return
 
     ; 获取大小写状态
     caps := GetKeyState("CapsLock", "T")
@@ -150,9 +345,7 @@ ShowCapsStatus() {
     ; 合并显示
     tip := capsIcon . " | " . ime
 
-    MouseGetPos(&x, &y)
-    ToolTip(tip, x + 10, y + 10)
-    SetTimer(RemoveCapsTip, capsShowDuration)
+    ShowTip(tip, capsShowDuration)
 }
 
 ; ============================================================
@@ -186,54 +379,32 @@ GetIMEStatus() {
 }
 
 ; ============================================================
-; 关闭大小写提示
-; ============================================================
-RemoveCapsTip() {
-    ToolTip()
-    SetTimer(RemoveCapsTip, 0)
-}
-
-; ============================================================
 ; 剪贴板变化回调函数 (AutoHotkey v2)
-; dataType: 0=空, 1=文本或文件, 2=非文本(图片等)
 ; ============================================================
 ClipChanged(dataType) {
-    global copyShowDuration
+    global copyShowDuration, enableCopyTip
+    if (!enableCopyTip)
+        return
 
     ; 剪贴板格式常量
-    ; CF_BITMAP = 2, CF_DIB = 8, CF_DIBV5 = 17, CF_HDROP = 15
     isFile := DllCall("IsClipboardFormatAvailable", "UInt", 15)
     isImage := DllCall("IsClipboardFormatAvailable", "UInt", 2)
           || DllCall("IsClipboardFormatAvailable", "UInt", 8)
           || DllCall("IsClipboardFormatAvailable", "UInt", 17)
 
     if (isFile) {
-        ; 复制的是文件
         files := StrSplit(A_Clipboard, "`n", "`r")
         count := files.Length
-        ToolTip("已复制：" . count . " 个文件")
-        SetTimer(RemoveCopyTip, copyShowDuration)
+        ShowTip("已复制：" . count . " 个文件", copyShowDuration)
     }
     else if (isImage) {
-        ; 复制的是图片
-        ToolTip("已复制：图片")
-        SetTimer(RemoveCopyTip, copyShowDuration)
+        ShowTip("已复制：图片", copyShowDuration)
     }
     else if (dataType = 1 || dataType = 2) {
-        ; 复制的是文本 (dataType=2 可能是图片，但如果上面没检测到就当文本处理)
         text := A_Clipboard
         length := StrLen(text)
         if (length > 0) {
-            ToolTip("已复制：" . length . " 字符")
-            SetTimer(RemoveCopyTip, copyShowDuration)
+            ShowTip("已复制：" . length . " 字符", copyShowDuration)
         }
     }
-}
-
-; ============================================================
-; 关闭复制提示
-; ============================================================
-RemoveCopyTip() {
-    ToolTip()
-    SetTimer(RemoveCopyTip, 0)
 }
