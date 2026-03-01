@@ -1,8 +1,9 @@
-﻿; ============================================================
+; ============================================================
 ; AllInOneNotification.ahk (AutoHotkey v2)
 ; 功能：合并大小写提示 + 复制提示
 ; - 大小写/输入法：🔒 大写 | 中 / 🔓 小写 | 英
 ; - 复制提示：显示复制的字符数/图片/文件数
+; - 右键托盘图标可打开设置
 ; ============================================================
 
 #SingleInstance Force
@@ -14,8 +15,26 @@ Persistent
 global capsShowDuration := 800    ; 大小写提示显示时间
 global copyShowDuration := 800    ; 复制提示显示时间
 global lastCapsState := GetKeyState("CapsLock", "T")
+global configPath := A_ScriptDir . "\config.ini"
 
 A_TrayTip := "大小写+输入法+复制提示"
+
+; ============================================================
+; 托盘菜单设置
+; ============================================================
+; 删除默认菜单项
+A_TrayMenu.Delete()
+
+; 添加自定义菜单项
+A_TrayMenu.Add("⚙ 设置", ShowSettings)
+A_TrayMenu.Add()  ; 分隔线
+A_TrayMenu.Add("🔄 重启", (*) => Reload())
+A_TrayMenu.Add("❌ 退出", (*) => ExitApp())
+
+; ============================================================
+; 启动时加载配置
+; ============================================================
+LoadConfig()
 
 ; ============================================================
 ; 大小写监听
@@ -33,6 +52,75 @@ SetTimer(CheckCapsLock, 30)
 OnClipboardChange(ClipChanged)
 
 return
+
+; ============================================================
+; 配置管理
+; ============================================================
+LoadConfig() {
+    global capsShowDuration, copyShowDuration, configPath
+
+    ; 如果配置文件不存在，使用默认值
+    if !FileExist(configPath)
+        return
+
+    try {
+        capsShowDuration := IniRead(configPath, "Settings", "CapsShowDuration", 800)
+        copyShowDuration := IniRead(configPath, "Settings", "CopyShowDuration", 800)
+    } catch {
+        ; 读取失败，使用默认值
+    }
+}
+
+SaveConfig() {
+    global capsShowDuration, copyShowDuration, configPath
+
+    try {
+        IniWrite(capsShowDuration, configPath, "Settings", "CapsShowDuration")
+        IniWrite(copyShowDuration, configPath, "Settings", "CopyShowDuration")
+    } catch as e {
+        MsgBox("保存配置失败：" . e.Message, "错误", 16)
+    }
+}
+
+; ============================================================
+; 设置窗口
+; ============================================================
+ShowSettings(*) {
+    global capsShowDuration, copyShowDuration
+
+    ; 创建设置窗口
+    settingsGui := Gui("+Owner", "设置")
+    settingsGui.SetFont("s10", "Microsoft YaHei")
+
+    ; 大小写提示时长
+    settingsGui.Add("Text", "x20 y20 w200", "大小写提示显示时长 (毫秒):")
+    capsEdit := settingsGui.Add("Edit", "x220 y17 w80", capsShowDuration)
+
+    ; 复制提示时长
+    settingsGui.Add("Text", "x20 y60 w200", "复制提示显示时长 (毫秒):")
+    copyEdit := settingsGui.Add("Edit", "x220 y57 w80", copyShowDuration)
+
+    ; 按钮
+    settingsGui.Add("Button", "x80 y100 w80 Default", "保存").OnEvent("Click", SaveAndClose)
+    settingsGui.Add("Button", "x180 y100 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+
+    ; 保存并关闭函数
+    SaveAndClose(*) {
+        global capsShowDuration, copyShowDuration
+
+        ; 验证并保存，最小值 100ms
+        capsShowDuration := Max(100, Integer(capsEdit.Value || 800))
+        copyShowDuration := Max(100, Integer(copyEdit.Value || 800))
+
+        SaveConfig()
+        settingsGui.Destroy()
+
+        ToolTip("设置已保存")
+        SetTimer(() => ToolTip(), 1500)
+    }
+
+    settingsGui.Show("w320 h150")
+}
 
 ; ============================================================
 ; CapsLock 状态检查
