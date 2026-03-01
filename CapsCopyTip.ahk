@@ -22,7 +22,7 @@ global enableCapsTip := true      ; 启用大小写提示
 global enableCopyTip := true      ; 启用复制提示
 global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央
 global tipFontSize := 9           ; 字体大小
-global tipFontBold := false       ; 字体加粗
+global tipFontBold := true        ; 字体加粗
 
 ; 提示 GUI
 global tipGui := ""
@@ -82,7 +82,7 @@ LoadConfig() {
         enableCopyTip := IniRead(configPath, "Settings", "EnableCopyTip", 1) = 1
         tipPosition := Integer(IniRead(configPath, "Settings", "TipPosition", 1))
         tipFontSize := IniRead(configPath, "Settings", "TipFontSize", 9)
-        tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 0) = 1
+        tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 1) = 1
     } catch {
         ; 读取失败，使用默认值
     }
@@ -180,11 +180,24 @@ ShowSettings(*) {
     boldCheck.Value := tipFontBold
 
     ; === 按钮 ===
-    settingsGui.Add("Button", "x100 y275 w80 Default", "保存").OnEvent("Click", SaveAndClose)
-    settingsGui.Add("Button", "x200 y275 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+    settingsGui.Add("Button", "x20 y275 w80", "恢复默认").OnEvent("Click", ResetDefaults)
+    settingsGui.Add("Button", "x120 y275 w80 Default", "保存").OnEvent("Click", SaveAndClose)
+    settingsGui.Add("Button", "x220 y275 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+
+    ResetDefaults(*) {
+        ; 恢复默认值并更新界面
+        capsCheck.Value := true
+        copyCheck.Value := true
+        capsEdit.Value := 800
+        copyEdit.Value := 800
+        posRadio1.Value := true
+        fontSizeEdit.Value := 9
+        boldCheck.Value := true
+    }
 
     SaveAndClose(*) {
-        global
+        global enableCapsTip, enableCopyTip, capsShowDuration, copyShowDuration
+        global tipPosition, tipFontSize, tipFontBold
 
         ; 保存功能开关
         enableCapsTip := capsCheck.Value
@@ -214,7 +227,7 @@ ShowSettings(*) {
         ApplySettings()
 
         settingsGui.Destroy()
-        ShowTip("设置已保存")
+        ShowTip("设置已保存", 800)
     }
 
     settingsGui.Show("w340 h320")
@@ -307,7 +320,7 @@ ShowTip(text, duration := 0) {
 
     ; 设置自动关闭
     if (duration > 0) {
-        SetTimer(() => HideTip(), duration)
+        SetTimer(HideTip, duration)
     }
 }
 
@@ -316,7 +329,7 @@ HideTip() {
     if (IsObject(tipGui)) {
         tipGui.Hide()
     }
-    SetTimer(() => HideTip(), 0)
+    SetTimer(HideTip, 0)
 }
 
 ; ============================================================
