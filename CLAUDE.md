@@ -1,4 +1,4 @@
-# AllInOneNotification 项目规则
+# CapsCopyTip 项目规则
 
 ## 项目概述
 
@@ -11,9 +11,9 @@ AutoHotkey v2 脚本，合并大小写提示 + 复制提示功能。
 
 **文件结构**：
 ```
-AllInOneNotification.ahk  - 主脚本
-AllInOneNotification.exe  - 编译后的可执行文件
-config.ini                - 用户配置（自动生成）
+CapsCopyTip.ahk  - 主脚本
+CapsCopyTip.exe  - 编译后的可执行文件
+config.ini       - 用户配置（自动生成）
 ```
 
 ---
@@ -21,10 +21,10 @@ config.ini                - 用户配置（自动生成）
 ## 编译命令
 
 ```bash
-rm -f /d/Desktop/test/AllInOneNotification.exe && \
+rm -f /d/Desktop/test/CapsCopyTip.exe && \
 "/c/Program Files/AutoHotkey/Compiler/Ahk2Exe.exe" \
-  //in "D:\\Desktop\\test\\AllInOneNotification.ahk" \
-  //out "D:\\Desktop\\test\\AllInOneNotification.exe" \
+  //in "D:\\Desktop\\test\\CapsCopyTip.ahk" \
+  //out "D:\\Desktop\\test\\CapsCopyTip.exe" \
   //base "C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey64.exe" \
   //compress 0
 ```
