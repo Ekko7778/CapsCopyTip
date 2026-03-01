@@ -1,4 +1,4 @@
-; ============================================================
+﻿; ============================================================
 ; AllInOneNotification.ahk (AutoHotkey v2)
 ; 功能：合并大小写提示 + 复制提示
 ; - 大小写/输入法：🔒 大写 | 中 / 🔓 小写 | 英
@@ -78,13 +78,20 @@ GetIMEStatus() {
     if (!hWnd)
         return "?"
 
-    hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hWnd, "UInt")
+    try hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hWnd, "UInt")
+    catch
+        return "?"
 
     if (!hIMEWnd)
         return "?"
 
     DetectHiddenWindows(true)
-    result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
+    try {
+        result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
+    } catch {
+        DetectHiddenWindows(false)
+        return "?"
+    }
     DetectHiddenWindows(false)
 
     return (result = 1) ? "中" : "英"
