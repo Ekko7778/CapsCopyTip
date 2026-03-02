@@ -77,7 +77,7 @@ if (enableCapsTip) {
 ~Shift:: {
     if (enableCapsTip) {
         KeyWait("Shift")
-        SetTimer(() => ShowCapsStatus(true), -50)  ; 延迟 50ms，强制刷新输入法状态
+        SetTimer(() => ShowCapsStatus(true), -100)  ; 延迟 100ms，等待输入法状态稳定
     }
 }
 
@@ -398,9 +398,10 @@ ShowTip(text, duration := 0) {
         tipGui.Show("x" . gx . " y" . gy . " NA")
     }
 
-    ; 设置自动关闭
+    ; 设置自动关闭 - 无论 GUI 是否存在，都要重置定时器
+    ; 使用负数周期表示只运行一次（run-once），避免与后续调用冲突
     if (duration > 0) {
-        SetTimer(HideTip, duration)
+        SetTimer(HideTip, -duration)
     }
 }
 
@@ -468,35 +469,36 @@ GetIMEStatus(forceRefresh := false) {
             return lastResult
         }
 
-        ; 检查窗口是否有效（避免刚销毁的窗口）
-        if (!DllCall("user32\IsWindow", "Ptr", hWnd, "Int")) {
-            lastCheckTime := A_TickCount
-            return lastResult
-        }
-
-        ; 方法1: 通过 IME 窗口获取状态
+        ; 方法1: 通过 IME 窗口获取状态（使用 AHK v2 内置 SendMessage）
         hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hWnd, "UInt")
         if (hIMEWnd) {
             DetectHiddenWindows(true)
             try {
-                result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
-                DetectHiddenWindows(false)
-                currentResult := (result = 1) ? "中" : "英"
+                ; IMC_GETOPENSTATUS = 0x0005 - 检测 IME 是否开启
+                isOpen := SendMessage(0x283, 0x0005, 0, , "ahk_id " . hIMEWnd)
+
+                if (isOpen) {
+                    ; IMC_GETCONVERSIONSTATUS = 0x0001 - 检测转换模式（中/英）
+                    convMode := SendMessage(0x283, 0x0001, 0, , "ahk_id " . hIMEWnd)
+                    ; IME_CMODE_NATIVE = 0x0001 - 如果设置此位，表示中文模式
+                    currentResult := (convMode & 0x0001) ? "中" : "英"
+                } else {
+                    currentResult := "英"
+                }
             } catch {
-                DetectHiddenWindows(false)
+                ; SendMessage 失败
             }
+            DetectHiddenWindows(false)
         }
 
         ; 方法2: 如果方法1失败，通过输入法上下文获取
-        if (currentResult = "" ) {
+        if (currentResult = "") {
             hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UInt")
             if (hIMC) {
                 isOpen := DllCall("imm32\ImmGetOpenStatus", "Ptr", hIMC, "Int")
                 if (isOpen) {
                     convMode := 0
-                    try {
-                        DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0, "Int")
-                    }
+                    DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0, "Int")
                     currentResult := (convMode & 1) ? "中" : "英"
                 } else {
                     currentResult := "英"
