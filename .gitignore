@@ -1,3 +1,6 @@
 # 第三方项目
 language-indicator/
 lib/
+
+# 项目规则（本地配置）
+CLAUDE.md

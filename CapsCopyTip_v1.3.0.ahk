@@ -230,14 +230,21 @@ ShowSettings(*) {
     settingsGui.Add("GroupBox", "x10 y10 w300 h110", "功能开关")
     startupCheck := settingsGui.Add("CheckBox", "x20 y30 w100", "开机启动")
     startupCheck.Value := IsStartupEnabled()
-    capsCheck := settingsGui.Add("CheckBox", "x180 y30 w100", "大小写提示")
-    capsCheck.Value := enableCapsTip
+    caretCheck := settingsGui.Add("CheckBox", "x180 y30 w100", "光标指示器")
+    caretCheck.Value := enableCaretIndicator
     copyCheck := settingsGui.Add("CheckBox", "x20 y55 w80", "复制提示")
     copyCheck.Value := enableCopyTip
-    caretCheck := settingsGui.Add("CheckBox", "x180 y55 w100", "光标指示器")
-    caretCheck.Value := enableCaretIndicator
-    imeCheck := settingsGui.Add("CheckBox", "x20 y80 w110", "显示中/英状态")
+    capsCheck := settingsGui.Add("CheckBox", "x20 y80 w100", "大小写提示")
+    capsCheck.Value := enableCapsTip
+    imeCheck := settingsGui.Add("CheckBox", "x180 y80 w110", "显示中/英状态")
     imeCheck.Value := showIMEStatus
+    imeCheck.Enabled := enableCapsTip  ; 大小写提示关闭时禁用
+
+    ; 大小写提示变化时，控制中/英状态是否可选
+    UpdateIMEState(ctrl, *) {
+        imeCheck.Enabled := ctrl.Value
+    }
+    capsCheck.OnEvent("Click", UpdateIMEState)
 
     ; === 显示时长 ===
     settingsGui.Add("GroupBox", "x10 y125 w300 h80", "显示时长")
@@ -263,7 +270,7 @@ ShowSettings(*) {
     settingsGui.Add("Text", "x265 y319", "px")
 
     ; === 外观样式 ===
-    settingsGui.Add("GroupBox", "x10 y350 w300 h80", "外观样式")
+    settingsGui.Add("GroupBox", "x10 y350 w300 h80", "外观样式（默认深色）")
     lightModeCheck := settingsGui.Add("CheckBox", "x20 y375 w80", "浅色模式")
     lightModeCheck.Value := tipLightMode
     settingsGui.Add("Text", "x20 y405 w40", "字号:")
@@ -281,6 +288,8 @@ ShowSettings(*) {
 
     ResetDefaults(*) {
         capsCheck.Value := true
+        imeCheck.Value := true
+        imeCheck.Enabled := true  ; 恢复启用状态
         copyCheck.Value := true
         caretCheck.Value := true
         capsEdit.Value := 800
@@ -292,7 +301,6 @@ ShowSettings(*) {
         fontSizeEdit.Value := 9
         boldCheck.Value := true
         lightModeCheck.Value := false
-        imeCheck.Value := true
     }
 
     SaveAndClose(*) {
@@ -332,7 +340,7 @@ ShowSettings(*) {
         tipFontSize := Max(8, Min(72, Integer(fontSizeEdit.Value || 9)))
         tipFontBold := boldCheck.Value
         tipLightMode := lightModeCheck.Value
-        showIMEStatus := imeCheck.Value
+        showIMEStatus := imeCheck.Value  ; 独立保存中/英状态
 
         ; 应用设置
         SaveConfig()
