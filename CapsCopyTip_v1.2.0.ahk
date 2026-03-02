@@ -32,6 +32,10 @@ global tipFontBold := true        ; 字体加粗
 ; 提示 GUI
 global tipGui := ""
 
+; 剪贴板防抖（Bug 1 修复）
+global lastClipboardContent := ""
+global lastClipboardTime := 0
+
 A_TrayTip := "CapsCopyTip v" . VERSION . " - 大小写+输入法+复制提示"
 
 ; ============================================================
@@ -517,8 +521,23 @@ GetIMEStatus(forceRefresh := false) {
 ; ============================================================
 ClipChanged(dataType) {
     global copyShowDuration, enableCopyTip
+    global lastClipboardContent, lastClipboardTime
     if (!enableCopyTip)
         return
+
+    ; Bug 1 修复：防抖机制
+    ; 100ms 内的重复事件直接忽略
+    if (A_TickCount - lastClipboardTime < 100)
+        return
+
+    ; 检查剪贴板内容是否真正变化
+    currentContent := A_Clipboard
+    if (currentContent = lastClipboardContent)
+        return
+
+    ; 更新记录
+    lastClipboardContent := currentContent
+    lastClipboardTime := A_TickCount
 
     ; 剪贴板格式常量
     isFile := DllCall("IsClipboardFormatAvailable", "UInt", 15)
