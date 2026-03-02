@@ -23,9 +23,9 @@ global configPath := A_ScriptDir . "\config.ini"
 global enableCapsTip := true      ; 启用大小写提示
 global enableCopyTip := true      ; 启用复制提示
 global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央, 3=屏幕顶部, 4=屏幕底部
-global tipMouseOffset := 2        ; 鼠标附近时的偏移距离(像素)
-global tipTopOffset := 10         ; 屏幕顶部偏移距离(像素)
-global tipBottomOffset := 150     ; 屏幕底部偏移距离(像素)
+global tipMouseOffset := 10       ; 鼠标附近时的偏移距离(像素)
+global tipTopOffset := 50         ; 屏幕顶部偏移距离(像素)
+global tipBottomOffset := 100     ; 屏幕底部偏移距离(像素)
 global tipFontSize := 9           ; 字体大小
 global tipFontBold := true        ; 字体加粗
 
@@ -42,6 +42,16 @@ A_TrayMenu.Add("⚙ 设置", ShowSettings)
 A_TrayMenu.Add()
 A_TrayMenu.Add("🔄 重启", (*) => Reload())
 A_TrayMenu.Add("❌ 退出", (*) => ExitApp())
+
+; 单击托盘图标打开设置
+OnMessage(0x404, TrayClickHandler)
+
+TrayClickHandler(wParam, lParam, msg, hwnd) {
+    if (lParam = 0x201 || lParam = 0x203) {  ; 单击或双击
+        ShowSettings()
+        return 0
+    }
+}
 
 ; ============================================================
 ; 启动时加载配置
@@ -63,7 +73,7 @@ if (enableCapsTip) {
 ~Shift:: {
     if (enableCapsTip) {
         KeyWait("Shift")
-        ShowCapsStatus()
+        SetTimer(() => ShowCapsStatus(true), -50)  ; 延迟 50ms，强制刷新输入法状态
     }
 }
 
@@ -91,9 +101,9 @@ LoadConfig() {
         enableCapsTip := IniRead(configPath, "Settings", "EnableCapsTip", 1) = 1
         enableCopyTip := IniRead(configPath, "Settings", "EnableCopyTip", 1) = 1
         tipPosition := Integer(IniRead(configPath, "Settings", "TipPosition", 1))
-        tipMouseOffset := IniRead(configPath, "Settings", "TipMouseOffset", 2)
-        tipTopOffset := IniRead(configPath, "Settings", "TipTopOffset", 10)
-        tipBottomOffset := IniRead(configPath, "Settings", "TipBottomOffset", 150)
+        tipMouseOffset := IniRead(configPath, "Settings", "TipMouseOffset", 10)
+        tipTopOffset := IniRead(configPath, "Settings", "TipTopOffset", 50)
+        tipBottomOffset := IniRead(configPath, "Settings", "TipBottomOffset", 100)
         tipFontSize := IniRead(configPath, "Settings", "TipFontSize", 9)
         tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 1) = 1
     } catch {
@@ -184,32 +194,37 @@ ShowSettings(*) {
     copyEdit := settingsGui.Add("Edit", "x180 y127 w60", copyShowDuration)
 
     ; === 提示位置 ===
-    settingsGui.Add("GroupBox", "x10 y160 w300 h90", "提示位置")
-    posRadio1 := settingsGui.Add("Radio", "x20 y180 w80" . (tipPosition = 1 ? " Checked" : ""), "鼠标附近")
-    posRadio2 := settingsGui.Add("Radio", "x110 y180 w80" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
-    posRadio3 := settingsGui.Add("Radio", "x200 y180 w80" . (tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
-    posRadio4 := settingsGui.Add("Radio", "x20 y200 w80" . (tipPosition = 4 ? " Checked" : ""), "屏幕底部")
-    settingsGui.Add("Text", "x110 y202 w30", "偏移:")
-    offsetEdit := settingsGui.Add("Edit", "x145 y199 w35", tipMouseOffset)
-    settingsGui.Add("Text", "x20 y222 w60", "顶部:")
-    topOffsetEdit := settingsGui.Add("Edit", "x60 y219 w35", tipTopOffset)
-    settingsGui.Add("Text", "x110 y222 w60", "底部:")
-    bottomOffsetEdit := settingsGui.Add("Edit", "x150 y219 w35", tipBottomOffset)
+    settingsGui.Add("GroupBox", "x10 y160 w300 h120", "提示位置")
+    ; 所有 Radio 必须连续创建才能正确分组
+    posRadio2 := settingsGui.Add("Radio", "x25 y182 w100 +Group" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
+    posRadio1 := settingsGui.Add("Radio", "x25 y204 w80" . (tipPosition = 1 ? " Checked" : ""), "鼠标附近")
+    posRadio3 := settingsGui.Add("Radio", "x25 y226 w80" . (tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
+    posRadio4 := settingsGui.Add("Radio", "x25 y248 w80" . (tipPosition = 4 ? " Checked" : ""), "屏幕底部")
+    ; 偏移设置（Radio 创建完后添加）
+    settingsGui.Add("Text", "x115 y207 w30", "偏移:")
+    offsetEdit := settingsGui.Add("Edit", "x150 y204 w40", tipMouseOffset)
+    settingsGui.Add("Text", "x195 y207", "px")
+    settingsGui.Add("Text", "x115 y229 w30", "偏移:")
+    topOffsetEdit := settingsGui.Add("Edit", "x150 y226 w40", tipTopOffset)
+    settingsGui.Add("Text", "x195 y229", "px")
+    settingsGui.Add("Text", "x115 y251 w30", "偏移:")
+    bottomOffsetEdit := settingsGui.Add("Edit", "x150 y248 w40", tipBottomOffset)
+    settingsGui.Add("Text", "x195 y251", "px")
 
     ; === 字体样式 ===
-    settingsGui.Add("GroupBox", "x10 y255 w300 h50", "字体样式")
-    settingsGui.Add("Text", "x20 y275 w80", "字号:")
-    fontSizeEdit := settingsGui.Add("Edit", "x70 y272 w50", tipFontSize)
-    boldCheck := settingsGui.Add("CheckBox", "x130 y275 w60", "加粗")
+    settingsGui.Add("GroupBox", "x10 y285 w300 h50", "字体样式")
+    settingsGui.Add("Text", "x25 y305 w40", "字号:")
+    fontSizeEdit := settingsGui.Add("Edit", "x65 y302 w40", tipFontSize)
+    boldCheck := settingsGui.Add("CheckBox", "x120 y305 w60", "加粗")
     boldCheck.Value := tipFontBold
 
     ; === 按钮 ===
-    settingsGui.Add("Button", "x20 y315 w80", "恢复默认").OnEvent("Click", ResetDefaults)
-    settingsGui.Add("Button", "x120 y315 w80 Default", "保存").OnEvent("Click", SaveAndClose)
-    settingsGui.Add("Button", "x220 y315 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+    settingsGui.Add("Button", "x25 y345 w80", "恢复默认").OnEvent("Click", ResetDefaults)
+    settingsGui.Add("Button", "x125 y345 w80 Default", "保存").OnEvent("Click", SaveAndClose)
+    settingsGui.Add("Button", "x225 y345 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
 
     ; GitHub 链接
-    settingsGui.Add("Link", "x100 y355", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub @Ekko7778</a>')
+    settingsGui.Add("Link", "x105 y385", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub @Ekko7778</a>')
 
     ResetDefaults(*) {
         ; 恢复默认值并更新界面
@@ -218,9 +233,9 @@ ShowSettings(*) {
         capsEdit.Value := 800
         copyEdit.Value := 800
         posRadio1.Value := true
-        offsetEdit.Value := 2
-        topOffsetEdit.Value := 10
-        bottomOffsetEdit.Value := 150
+        offsetEdit.Value := 10
+        topOffsetEdit.Value := 50
+        bottomOffsetEdit.Value := 100
         fontSizeEdit.Value := 9
         boldCheck.Value := true
     }
@@ -253,11 +268,11 @@ ShowSettings(*) {
             tipPosition := 1  ; 默认鼠标附近
 
         ; 保存鼠标偏移
-        tipMouseOffset := Max(0, Min(100, Integer(offsetEdit.Value || 2)))
+        tipMouseOffset := Max(0, Min(100, Integer(offsetEdit.Value || 10)))
 
         ; 保存顶部和底部偏移
-        tipTopOffset := Max(0, Min(500, Integer(topOffsetEdit.Value || 10)))
-        tipBottomOffset := Max(0, Min(500, Integer(bottomOffsetEdit.Value || 150)))
+        tipTopOffset := Max(0, Min(500, Integer(topOffsetEdit.Value || 50)))
+        tipBottomOffset := Max(0, Min(500, Integer(bottomOffsetEdit.Value || 100)))
 
         ; 保存字体样式
         tipFontSize := Max(8, Min(72, Integer(fontSizeEdit.Value || 9)))
@@ -271,7 +286,7 @@ ShowSettings(*) {
         ShowTip("设置已保存", 800)
     }
 
-    settingsGui.Show("w340 h380")
+    settingsGui.Show("w340 h415")
 }
 
 ; ============================================================
@@ -411,7 +426,7 @@ CheckCapsLock() {
 ; ============================================================
 ; 显示大小写+输入法状态
 ; ============================================================
-ShowCapsStatus() {
+ShowCapsStatus(forceRefreshIME := false) {
     global capsShowDuration, enableCapsTip
     if (!enableCapsTip)
         return
@@ -421,7 +436,7 @@ ShowCapsStatus() {
     capsIcon := caps ? "🔒 大写" : "🔓 小写"
 
     ; 获取输入法状态
-    ime := GetIMEStatus()
+    ime := GetIMEStatus(forceRefreshIME)
 
     ; 合并显示
     tip := capsIcon . " | " . ime
@@ -432,55 +447,69 @@ ShowCapsStatus() {
 ; ============================================================
 ; 获取输入法中/英状态
 ; ============================================================
-GetIMEStatus() {
-    try hWnd := WinExist("A")
-    catch
-        return "英"
+GetIMEStatus(forceRefresh := false) {
+    static lastResult := "英"
+    static lastCheckTime := 0
 
-    if (!hWnd)
-        return "英"
+    ; 防抖：150ms 内直接返回上次结果（强制刷新时跳过）
+    if (!forceRefresh && A_TickCount - lastCheckTime < 150)
+        return lastResult
 
-    ; 方法1: 通过 IME 窗口获取状态
-    try hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hWnd, "UInt")
-    catch
-        hIMEWnd := 0
+    currentResult := ""
 
-    if (hIMEWnd) {
-        DetectHiddenWindows(true)
-        try {
-            result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
-            DetectHiddenWindows(false)
-            return (result = 1) ? "中" : "英"
-        } catch {
-            DetectHiddenWindows(false)
-        }
-    }
-
-    ; 方法2: 通过输入法上下文获取状态（备用方案）
     try {
-        hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UInt")
-        if (hIMC) {
-            isOpen := DllCall("imm32\ImmGetOpenStatus", "Ptr", hIMC, "Int")
-            if (isOpen) {
-                ; 输入法开启，尝试获取转换状态
-                convMode := 0
-                try {
-                    DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0, "Int")
-                }
-                ; 释放上下文
-                DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "Ptr", hIMC)
-                ; 检查是否为中文模式（通常 bit 1 表示中文输入）
-                return (convMode & 1) ? "中" : "英"
+        hWnd := WinExist("A")
+        if (!hWnd) {
+            lastCheckTime := A_TickCount
+            return lastResult
+        }
+
+        ; 检查窗口是否有效（避免刚销毁的窗口）
+        if (!DllCall("user32\IsWindow", "Ptr", hWnd, "Int")) {
+            lastCheckTime := A_TickCount
+            return lastResult
+        }
+
+        ; 方法1: 通过 IME 窗口获取状态
+        hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hWnd, "UInt")
+        if (hIMEWnd) {
+            DetectHiddenWindows(true)
+            try {
+                result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
+                DetectHiddenWindows(false)
+                currentResult := (result = 1) ? "中" : "英"
+            } catch {
+                DetectHiddenWindows(false)
             }
-            ; 释放上下文
-            DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "Ptr", hIMC)
-            return "英"  ; 输入法关闭
+        }
+
+        ; 方法2: 如果方法1失败，通过输入法上下文获取
+        if (currentResult = "" ) {
+            hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UInt")
+            if (hIMC) {
+                isOpen := DllCall("imm32\ImmGetOpenStatus", "Ptr", hIMC, "Int")
+                if (isOpen) {
+                    convMode := 0
+                    try {
+                        DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0, "Int")
+                    }
+                    currentResult := (convMode & 1) ? "中" : "英"
+                } else {
+                    currentResult := "英"
+                }
+                DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "Ptr", hIMC)
+            }
         }
     } catch {
-        ; 忽略错误
+        ; 出错时使用上次结果
     }
 
-    return "英"  ; 默认显示英文
+    ; 确保返回有效值
+    if (currentResult != "")
+        lastResult := currentResult
+
+    lastCheckTime := A_TickCount
+    return lastResult
 }
 
 ; ============================================================
