@@ -222,6 +222,13 @@ SetStartup(enable) {
 ; ============================================================
 ShowSettings(*) {
     global
+    static settingsGui := ""
+
+    ; 防止多开：如果窗口已存在，直接激活
+    if (IsObject(settingsGui) && WinExist("ahk_id " . settingsGui.Hwnd)) {
+        WinActivate("ahk_id " . settingsGui.Hwnd)
+        return
+    }
 
     settingsGui := Gui("+Owner", "CapsCopyTip v" . VERSION)
     settingsGui.SetFont("s10", "Microsoft YaHei")
@@ -281,7 +288,33 @@ ShowSettings(*) {
     ; === 按钮 ===
     settingsGui.Add("Button", "x25 y440 w80", "恢复默认").OnEvent("Click", ResetDefaults)
     settingsGui.Add("Button", "x125 y440 w80 Default", "保存").OnEvent("Click", SaveAndClose)
-    settingsGui.Add("Button", "x225 y440 w80", "取消").OnEvent("Click", (*) => settingsGui.Destroy())
+    settingsGui.Add("Button", "x225 y440 w80", "取消").OnEvent("Click", CancelAndClose)
+
+    ; 窗口关闭时清理（点击 X 关闭）
+    settingsGui.OnEvent("Close", CancelAndClose)
+
+    CancelAndClose(*) {
+        settingsGui.Destroy()
+        ; 释放控件引用，帮助 GC 回收内存
+        settingsGui := ""
+        startupCheck := ""
+        caretCheck := ""
+        copyCheck := ""
+        capsCheck := ""
+        imeCheck := ""
+        capsEdit := ""
+        copyEdit := ""
+        posRadio1 := ""
+        posRadio2 := ""
+        posRadio3 := ""
+        posRadio4 := ""
+        offsetEdit := ""
+        topOffsetEdit := ""
+        bottomOffsetEdit := ""
+        lightModeCheck := ""
+        fontSizeEdit := ""
+        boldCheck := ""
+    }
 
     ; GitHub 链接
     settingsGui.Add("Link", "x105 y480", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub @Ekko7778</a>')
@@ -347,6 +380,26 @@ ShowSettings(*) {
         ApplySettings()
 
         settingsGui.Destroy()
+        ; 释放控件引用，帮助 GC 回收内存
+        settingsGui := ""
+        startupCheck := ""
+        caretCheck := ""
+        copyCheck := ""
+        capsCheck := ""
+        imeCheck := ""
+        capsEdit := ""
+        copyEdit := ""
+        posRadio1 := ""
+        posRadio2 := ""
+        posRadio3 := ""
+        posRadio4 := ""
+        offsetEdit := ""
+        topOffsetEdit := ""
+        bottomOffsetEdit := ""
+        lightModeCheck := ""
+        fontSizeEdit := ""
+        boldCheck := ""
+
         ShowTip("设置已保存", 800)
     }
 
