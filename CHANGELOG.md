@@ -2,6 +2,15 @@
 
 All notable changes to CapsCopyTip will be documented in this file.
 
+## [1.3.1] - 2026-03-03
+
+### Added
+- ✨ 添加"反转输入法检测"选项（兼容搜狗/微信/微软等不同输入法）
+
+### Fixed
+- 🐛 修复设置窗口内存泄漏问题（关闭后内存不释放）
+- 🐛 修复设置窗口可多开导致报错的问题
+
 ## [1.3.0] - 2026-03-03
 
 ### Added
