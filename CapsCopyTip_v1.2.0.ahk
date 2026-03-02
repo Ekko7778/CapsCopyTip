@@ -511,11 +511,11 @@ DetectIMEViaKeyboardLayout() {
             ; IME_CMODE_EUDC = 0x0200
             ; IME_CMODE_SYMBOL = 0x0400 (符号模式)
 
-            ; 微软拼音: Shift 切换后 convMode 会变成 0 或只有 IME_CMODE_ROMAN
-            if (convMode = 0 || (convMode & 0x0001) = 0)
-                result := "英"
-            else
+            ; 微软拼音: IME_CMODE_NATIVE (0x0001) = 1 表示中文模式，= 0 表示英文模式
+            if (convMode & 0x0001)
                 result := "中"
+            else
+                result := "英"
 
             DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
             return result
