@@ -2,6 +2,22 @@
 
 All notable changes to CapsCopyTip will be documented in this file.
 
+## [1.3.0] - 2026-03-03
+
+### Added
+- ✨ 内置 CaretIndicator 光标指示器（在文本光标旁显示语言状态）
+- ✨ 设置界面添加"显示中/英状态"开关（依赖大小写提示）
+- 🖼️ 添加应用图标（macOS Big Sur 风格）
+
+### Changed
+- 🖼️ 优化设置窗口布局
+- ♻️ 整理项目目录结构（archive/ 存放历史版本，assets/ 存放资源文件）
+- ⚙️ 更新 .gitignore 忽略项目规则文件
+
+### Fixed
+- 🐛 修复 Shift 键触发逻辑，排除组合键干扰
+- 🐛 使用正确的 Stop() 方法停止光标指示器
+
 ## [1.1.0] - 2026-03-02
 
 ### Added
