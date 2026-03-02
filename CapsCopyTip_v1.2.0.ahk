@@ -75,11 +75,28 @@ if (enableCapsTip) {
     SetTimer(CheckCapsLock, 30)
 }
 
+; Shift 组合键检测：使用 InputHook 监控按键
+global shiftInputHook := ""
+
 ~Shift:: {
     if (enableCapsTip) {
+        ; 检测其他修饰键是否被按住（Shift+Ctrl、Shift+Alt 等）
+        if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
+            return
+
+        ; 启动 InputHook 监控任意按键（非阻塞）
+        shiftInputHook := InputHook("V L0 T0.5", "{Shift}")
+        shiftInputHook.Start()
+
         KeyWait("Shift")
-        ; Shift 切换后，立即反转显示状态
-        ShowCapsStatus(true, true)
+
+        ; 检查是否在 Shift 按下期间有其他键被按下
+        ; InProgress = true 表示没有其他键按下，正常结束
+        if (shiftInputHook.InProgress)
+            ShowCapsStatus(true, true)
+
+        shiftInputHook.Stop()
+        shiftInputHook := ""
     }
 }
 
