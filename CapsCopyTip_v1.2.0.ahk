@@ -77,7 +77,8 @@ if (enableCapsTip) {
 ~Shift:: {
     if (enableCapsTip) {
         KeyWait("Shift")
-        SetTimer(() => ShowCapsStatus(true), -100)  ; 延迟 100ms，等待输入法状态稳定
+        ; Shift 切换后，反转显示状态（因为 Windows 11 微软拼音不会更新传统 IME 状态）
+        SetTimer(() => ShowCapsStatus(true, true), -150)
     }
 }
 
@@ -431,8 +432,10 @@ CheckCapsLock() {
 ; ============================================================
 ; 显示大小写+输入法状态
 ; ============================================================
-ShowCapsStatus(forceRefreshIME := false) {
+ShowCapsStatus(forceRefreshIME := false, toggleMode := false) {
     global capsShowDuration, enableCapsTip
+    static lastIMEState := "英"
+
     if (!enableCapsTip)
         return
 
@@ -441,7 +444,14 @@ ShowCapsStatus(forceRefreshIME := false) {
     capsIcon := caps ? "🔒 大写" : "🔓 小写"
 
     ; 获取输入法状态
-    ime := GetIMEStatus(forceRefreshIME)
+    if (toggleMode) {
+        ; Shift 切换模式：反转上次状态
+        lastIMEState := (lastIMEState = "中") ? "英" : "中"
+        ime := lastIMEState
+    } else {
+        ime := GetIMEStatus(forceRefreshIME)
+        lastIMEState := ime
+    }
 
     ; 合并显示
     tip := capsIcon . " | " . ime
@@ -451,6 +461,7 @@ ShowCapsStatus(forceRefreshIME := false) {
 
 ; ============================================================
 ; 获取输入法中/英状态
+; Windows 11 需要使用 TSF 框架检测
 ; ============================================================
 GetIMEStatus(forceRefresh := false) {
     static lastResult := "英"
@@ -463,51 +474,14 @@ GetIMEStatus(forceRefresh := false) {
     currentResult := ""
 
     try {
-        hWnd := WinExist("A")
-        if (!hWnd) {
-            lastCheckTime := A_TickCount
-            return lastResult
-        }
+        ; 方法1: 使用 WMI 检测当前键盘布局
+        currentResult := DetectIMEViaKeyboardLayout()
 
-        ; 方法1: 通过 IME 窗口获取状态（使用 AHK v2 内置 SendMessage）
-        hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "Ptr", hWnd, "UInt")
-        if (hIMEWnd) {
-            DetectHiddenWindows(true)
-            try {
-                ; IMC_GETOPENSTATUS = 0x0005 - 检测 IME 是否开启
-                isOpen := SendMessage(0x283, 0x0005, 0, , "ahk_id " . hIMEWnd)
-
-                if (isOpen) {
-                    ; IMC_GETCONVERSIONSTATUS = 0x0001 - 检测转换模式（中/英）
-                    convMode := SendMessage(0x283, 0x0001, 0, , "ahk_id " . hIMEWnd)
-                    ; IME_CMODE_NATIVE = 0x0001 - 如果设置此位，表示中文模式
-                    currentResult := (convMode & 0x0001) ? "中" : "英"
-                } else {
-                    currentResult := "英"
-                }
-            } catch {
-                ; SendMessage 失败
-            }
-            DetectHiddenWindows(false)
-        }
-
-        ; 方法2: 如果方法1失败，通过输入法上下文获取
+        ; 方法2: 传统 IMM32 方法（备选）
         if (currentResult = "") {
-            hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UInt")
-            if (hIMC) {
-                isOpen := DllCall("imm32\ImmGetOpenStatus", "Ptr", hIMC, "Int")
-                if (isOpen) {
-                    convMode := 0
-                    DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0, "Int")
-                    currentResult := (convMode & 1) ? "中" : "英"
-                } else {
-                    currentResult := "英"
-                }
-                DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "Ptr", hIMC)
-            }
+            currentResult := DetectIMEViaIMM32()
         }
     } catch {
-        ; 出错时使用上次结果
     }
 
     ; 确保返回有效值
@@ -516,6 +490,89 @@ GetIMEStatus(forceRefresh := false) {
 
     lastCheckTime := A_TickCount
     return lastResult
+}
+
+; ============================================================
+; 通过键盘布局检测输入法状态
+; ============================================================
+DetectIMEViaKeyboardLayout() {
+    try {
+        ; 获取前台窗口
+        hWnd := WinExist("A")
+        if (!hWnd)
+            return ""
+
+        ; 获取窗口线程
+        threadID := DllCall("GetWindowThreadProcessId", "Ptr", hWnd, "Ptr", 0, "UInt")
+        if (!threadID)
+            return ""
+
+        ; 获取当前键盘布局
+        hkl := DllCall("GetKeyboardLayout", "UInt", threadID, "UPtr")
+
+        ; 检测是否是中文输入法 (0x0804 = 简体中文)
+        langID := hkl & 0xFFFF
+        if (langID != 0x0804)
+            return "英"
+
+        ; 对于中文输入法，尝试检测 Shift 状态
+        ; 通过 ImmGetContext 获取更详细的状态
+        hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UPtr")
+        if (hIMC) {
+            convMode := 0
+            DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0)
+
+            ; 检测多个状态位
+            ; IME_CMODE_NATIVE = 0x0001 (中文模式)
+            ; IME_CMODE_KATAKANA = 0x0002
+            ; IME_CMODE_FULLSHAPE = 0x0008 (全角)
+            ; IME_CMODE_ROMAN = 0x0010 (罗马字)
+            ; IME_CMODE_CHARCODE = 0x0020
+            ; IME_CMODE_HANJACONVERT = 0x0040
+            ; IME_CMODE_SOFTKBD = 0x0080
+            ; IME_CMODE_NOCONVERSION = 0x0100
+            ; IME_CMODE_EUDC = 0x0200
+            ; IME_CMODE_SYMBOL = 0x0400 (符号模式)
+
+            ; 微软拼音: Shift 切换后 convMode 会变成 0 或只有 IME_CMODE_ROMAN
+            if (convMode = 0 || (convMode & 0x0001) = 0)
+                result := "英"
+            else
+                result := "中"
+
+            DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
+            return result
+        }
+    } catch {
+    }
+    return ""
+}
+
+; ============================================================
+; 通过 IMM32 窗口消息检测输入法状态
+; ============================================================
+DetectIMEViaIMM32() {
+    savedDetectHiddenWindows := A_DetectHiddenWindows
+
+    try {
+        hWnd := WinExist("A")
+        if (!hWnd)
+            return ""
+
+        DetectHiddenWindows(true)
+        hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "UInt", hWnd, "UInt")
+
+        if (hIMEWnd) {
+            result := SendMessage(0x283, 0x001, 0, , "ahk_id " . hIMEWnd)
+            DetectHiddenWindows(savedDetectHiddenWindows)
+            return (result = 0) ? "英" : "中"
+        }
+
+        DetectHiddenWindows(savedDetectHiddenWindows)
+    } catch {
+        DetectHiddenWindows(savedDetectHiddenWindows)
+    }
+    return ""
 }
 
 ; ============================================================
