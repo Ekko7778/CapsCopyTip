@@ -19,7 +19,7 @@ Persistent
 ; ============================================================
 ; 全局设置
 ; ============================================================
-global VERSION := "1.3.0"
+global VERSION := "1.3.1"
 global capsShowDuration := 800    ; 大小写提示显示时间
 global copyShowDuration := 800    ; 复制提示显示时间
 global lastCapsState := GetKeyState("CapsLock", "T")
@@ -30,6 +30,7 @@ global enableCapsTip := true      ; 启用大小写提示
 global enableCopyTip := true      ; 启用复制提示
 global enableCaretIndicator := true  ; 启用光标指示器
 global showIMEStatus := true      ; 显示中/英状态
+global imeDetectInvert := false   ; 反转输入法检测逻辑（某些输入法需要）
 
 ; 提示位置设置
 global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央, 3=屏幕顶部, 4=屏幕底部
@@ -152,6 +153,7 @@ LoadConfig() {
         tipFontBold := IniRead(configPath, "Settings", "TipFontBold", 1) = 1
         tipLightMode := IniRead(configPath, "Settings", "TipLightMode", 0) = 1
         showIMEStatus := IniRead(configPath, "Settings", "ShowIMEStatus", 1) = 1
+        imeDetectInvert := IniRead(configPath, "Settings", "ImeDetectInvert", 0) = 1
     } catch {
         ; 读取失败，使用默认值
     }
@@ -174,6 +176,7 @@ SaveConfig() {
         IniWrite(tipFontBold ? 1 : 0, configPath, "Settings", "TipFontBold")
         IniWrite(tipLightMode ? 1 : 0, configPath, "Settings", "TipLightMode")
         IniWrite(showIMEStatus ? 1 : 0, configPath, "Settings", "ShowIMEStatus")
+        IniWrite(imeDetectInvert ? 1 : 0, configPath, "Settings", "ImeDetectInvert")
     } catch as e {
         MsgBox("保存配置失败：" . e.Message, "错误", 16)
     }
@@ -277,18 +280,20 @@ ShowSettings(*) {
     settingsGui.Add("Text", "x265 y319", "px")
 
     ; === 外观样式 ===
-    settingsGui.Add("GroupBox", "x10 y350 w300 h80", "外观样式（默认深色）")
+    settingsGui.Add("GroupBox", "x10 y350 w300 h105", "外观样式（默认深色）")
     lightModeCheck := settingsGui.Add("CheckBox", "x20 y375 w80", "浅色模式")
     lightModeCheck.Value := tipLightMode
     settingsGui.Add("Text", "x20 y405 w40", "字号:")
     fontSizeEdit := settingsGui.Add("Edit", "x60 y402 w40", tipFontSize)
     boldCheck := settingsGui.Add("CheckBox", "x180 y405 w60", "加粗")
     boldCheck.Value := tipFontBold
+    invertCheck := settingsGui.Add("CheckBox", "x20 y435 w150", "反转输入法检测")
+    invertCheck.Value := imeDetectInvert
 
     ; === 按钮 ===
-    settingsGui.Add("Button", "x25 y440 w80", "恢复默认").OnEvent("Click", ResetDefaults)
-    settingsGui.Add("Button", "x125 y440 w80 Default", "保存").OnEvent("Click", SaveAndClose)
-    settingsGui.Add("Button", "x225 y440 w80", "取消").OnEvent("Click", CancelAndClose)
+    settingsGui.Add("Button", "x25 y465 w80", "恢复默认").OnEvent("Click", ResetDefaults)
+    settingsGui.Add("Button", "x125 y465 w80 Default", "保存").OnEvent("Click", SaveAndClose)
+    settingsGui.Add("Button", "x225 y465 w80", "取消").OnEvent("Click", CancelAndClose)
 
     ; 窗口关闭时清理（点击 X 关闭）
     settingsGui.OnEvent("Close", CancelAndClose)
@@ -314,10 +319,11 @@ ShowSettings(*) {
         lightModeCheck := ""
         fontSizeEdit := ""
         boldCheck := ""
+        invertCheck := ""
     }
 
     ; GitHub 链接
-    settingsGui.Add("Link", "x105 y480", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub @Ekko7778</a>')
+    settingsGui.Add("Link", "x105 y505", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub @Ekko7778</a>')
 
     ResetDefaults(*) {
         capsCheck.Value := true
@@ -334,11 +340,12 @@ ShowSettings(*) {
         fontSizeEdit.Value := 9
         boldCheck.Value := true
         lightModeCheck.Value := false
+        invertCheck.Value := false
     }
 
     SaveAndClose(*) {
         global enableCapsTip, enableCopyTip, enableCaretIndicator, capsShowDuration, copyShowDuration
-        global tipPosition, tipMouseOffset, tipTopOffset, tipBottomOffset, tipFontSize, tipFontBold, tipLightMode, showIMEStatus
+        global tipPosition, tipMouseOffset, tipTopOffset, tipBottomOffset, tipFontSize, tipFontBold, tipLightMode, showIMEStatus, imeDetectInvert
 
         ; 保存功能开关
         enableCapsTip := capsCheck.Value
@@ -374,6 +381,7 @@ ShowSettings(*) {
         tipFontBold := boldCheck.Value
         tipLightMode := lightModeCheck.Value
         showIMEStatus := imeCheck.Value  ; 独立保存中/英状态
+        imeDetectInvert := invertCheck.Value  ; 保存反转检测设置
 
         ; 应用设置
         SaveConfig()
@@ -399,11 +407,12 @@ ShowSettings(*) {
         lightModeCheck := ""
         fontSizeEdit := ""
         boldCheck := ""
+        invertCheck := ""
 
         ShowTip("设置已保存", 800)
     }
 
-    settingsGui.Show("w340 h510")
+    settingsGui.Show("w340 h545")
 }
 
 ; ============================================================
@@ -636,6 +645,7 @@ DetectIMEViaKeyboardLayout() {
 ; 通过 IMM32 窗口消息检测输入法状态
 ; ============================================================
 DetectIMEViaIMM32() {
+    global imeDetectInvert
     savedDetectHiddenWindows := A_DetectHiddenWindows
 
     try {
@@ -649,8 +659,11 @@ DetectIMEViaIMM32() {
         if (hIMEWnd) {
             result := SendMessage(0x283, 0x001, 0, , "ahk_id " . hIMEWnd)
             DetectHiddenWindows(savedDetectHiddenWindows)
-            ; 注意：某些输入法返回值逻辑相反，0 表示中文模式
-            return (result = 0) ? "中" : "英"
+            ; 根据设置决定是否反转检测逻辑
+            if (imeDetectInvert)
+                return (result = 0) ? "英" : "中"
+            else
+                return (result = 0) ? "中" : "英"
         }
 
         DetectHiddenWindows(savedDetectHiddenWindows)
