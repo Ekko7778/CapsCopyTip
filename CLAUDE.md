@@ -165,6 +165,19 @@ ShowSettings(*) {
 }
 ```
 
+### GUI GroupBox 布局宽度
+
+GroupBox 宽度应与窗口宽度协调，确保左右边距一致：
+
+- 窗口宽度：`340`
+- 左右边距：各 `10`
+- GroupBox 宽度：`320`（340 - 10 - 10）
+
+```autohotkey
+settingsGui.Show("w340 h545")
+settingsGui.Add("GroupBox", "x10 y10 w320 h110", "功能开关")
+```
+
 ---
 
 ## 待修复 Bug
