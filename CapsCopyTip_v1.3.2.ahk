@@ -331,11 +331,11 @@ ShowSettings(*) {
     settingsGui.OnEvent("Close", Settings_CancelAndClose)
 
     ; GitHub 图标 + 版权
-    pic := settingsGui.Add("Picture", "x20 y505 w16 h16", "github.ico")
+    pic := settingsGui.Add("Picture", "x20 y508 w16 h16", "github.ico")
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
-    settingsGui.Add("Link", "x40 y507", '<a href="https://github.com/Ekko7778/AllInOneNotification">@Ekko7778</a>')
-    settingsGui.Add("Text", "x150 y507", "© 2026 Ekko7778 - MIT License")
+    settingsGui.Add("Link", "x40 y510", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
+    settingsGui.Add("Text", "x140 y510", "© 2026 Ekko7778 - MIT License")
 
     settingsGui.Show("w340 h545")
 }
