@@ -147,9 +147,12 @@ global shiftInputHook := ""
         KeyWait("Shift")
 
         ; 检查是否在 Shift 按下期间有其他键被按下
-        ; InProgress = true 表示没有其他键按下，正常结束
-        if (shiftInputHook.InProgress)
-            ShowCapsStatus(true, true)
+        ; InProgress = true 表示没有其他键按下，是单独的 Shift 按键
+        if (shiftInputHook.InProgress) {
+            ; 等待 IME 切换完成后再检测状态
+            Sleep(50)
+            ShowCapsStatus(true)  ; 强制刷新 IME 状态
+        }
 
         shiftInputHook.Stop()
         shiftInputHook := ""
@@ -297,20 +300,20 @@ ShowSettings(*) {
         return
     }
 
-    settingsGui := Gui("+Owner", "CapsCopyTip v" . VERSION)
+    settingsGui := Gui("+Owner -Caption", "CapsCopyTip v" . VERSION)
     settingsGui.SetFont("s10", "Microsoft YaHei")
 
     ; === 功能开关 ===
-    settingsGui.Add("GroupBox", "x10 y10 w300 h110", "功能开关")
+    settingsGui.Add("GroupBox", "x10 y10 w320 h110", "功能开关")
     settingsGui.ctl_startup := settingsGui.Add("CheckBox", "x20 y30 w100", "开机启动")
     settingsGui.ctl_startup.Value := IsStartupEnabled()
-    settingsGui.ctl_caret := settingsGui.Add("CheckBox", "x180 y30 w100", "光标指示器")
+    settingsGui.ctl_caret := settingsGui.Add("CheckBox", "x200 y30 w100", "光标指示器")
     settingsGui.ctl_caret.Value := enableCaretIndicator
     settingsGui.ctl_copy := settingsGui.Add("CheckBox", "x20 y55 w80", "复制提示")
     settingsGui.ctl_copy.Value := enableCopyTip
     settingsGui.ctl_caps := settingsGui.Add("CheckBox", "x20 y80 w100", "大小写提示")
     settingsGui.ctl_caps.Value := enableCapsTip
-    settingsGui.ctl_ime := settingsGui.Add("CheckBox", "x180 y80 w110", "显示中/英状态")
+    settingsGui.ctl_ime := settingsGui.Add("CheckBox", "x200 y80 w110", "显示中/英状态")
     settingsGui.ctl_ime.Value := showIMEStatus
     settingsGui.ctl_ime.Enabled := enableCapsTip
 
@@ -318,14 +321,14 @@ ShowSettings(*) {
     settingsGui.ctl_caps.OnEvent("Click", Settings_UpdateIMEState)
 
     ; === 显示时长 ===
-    settingsGui.Add("GroupBox", "x10 y125 w300 h80", "显示时长")
+    settingsGui.Add("GroupBox", "x10 y125 w320 h80", "显示时长")
     settingsGui.Add("Text", "x20 y148 w150", "大小写提示 (ms):")
     settingsGui.ctl_capsDur := settingsGui.Add("Edit", "x180 y145 w60 Number", capsShowDuration)
     settingsGui.Add("Text", "x20 y178 w150", "复制提示 (ms):")
     settingsGui.ctl_copyDur := settingsGui.Add("Edit", "x180 y175 w60 Number", copyShowDuration)
 
     ; === 提示位置 ===
-    settingsGui.Add("GroupBox", "x10 y210 w300 h135", "提示位置")
+    settingsGui.Add("GroupBox", "x10 y210 w320 h135", "提示位置")
     settingsGui.ctl_pos2 := settingsGui.Add("Radio", "x20 y235 w100 +Group" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
     settingsGui.ctl_pos1 := settingsGui.Add("Radio", "x20 y262 w80" . (tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
     settingsGui.ctl_pos3 := settingsGui.Add("Radio", "x20 y289 w80" . (tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
@@ -341,7 +344,7 @@ ShowSettings(*) {
     settingsGui.Add("Text", "x265 y319", "px")
 
     ; === 外观样式 ===
-    settingsGui.Add("GroupBox", "x10 y350 w300 h105", "外观样式（默认深色）")
+    settingsGui.Add("GroupBox", "x10 y350 w320 h105", "外观样式（默认深色）")
     settingsGui.ctl_lightMode := settingsGui.Add("CheckBox", "x20 y375 w80", "浅色模式")
     settingsGui.ctl_lightMode.Value := tipLightMode
     settingsGui.Add("Text", "x20 y405 w40", "字号:")
@@ -623,19 +626,11 @@ CheckCapsLock() {
 ; ============================================================
 ; 显示大小写+输入法状态
 ; ============================================================
-ShowCapsStatus(forceRefreshIME := false, toggleMode := false) {
+ShowCapsStatus(forceRefreshIME := false) {
     global capsShowDuration, enableCapsTip, showIMEStatus
-    static lastIMEState := ""
-    static isInitialized := false
 
     if (!enableCapsTip)
         return
-
-    ; 首次调用时获取实际 IME 状态
-    if (!isInitialized && showIMEStatus) {
-        lastIMEState := GetIMEStatus(true)
-        isInitialized := true
-    }
 
     ; 获取大小写状态
     caps := GetKeyState("CapsLock", "T")
@@ -643,18 +638,10 @@ ShowCapsStatus(forceRefreshIME := false, toggleMode := false) {
 
     ; 根据开关决定是否显示中/英状态
     if (showIMEStatus) {
-        ; 获取输入法状态
-        if (toggleMode) {
-            ; Shift 切换模式：反转上次状态
-            lastIMEState := (lastIMEState = "中") ? "英" : "中"
-            ime := lastIMEState
-        } else {
-            ime := GetIMEStatus(forceRefreshIME)
-            if (ime != "")
-                lastIMEState := ime
-        }
+        ; 每次都实际检测 IME 状态（不再用手动反转）
+        ime := GetIMEStatus(forceRefreshIME)
         ; 合并显示
-        tip := capsIcon . " | " . (lastIMEState != "" ? lastIMEState : "英")
+        tip := capsIcon . " | " . (ime != "" ? ime : "英")
     } else {
         ; 只显示大小写
         tip := capsIcon
@@ -730,10 +717,11 @@ DetectIMEViaKeyboardLayout() {
             convMode := 0
             DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0)
 
+            ; 微软拼音: convMode & 0x0001 = 0 表示中文，非0 表示英文
             if (convMode & 0x0001)
-                result := "中"
-            else
                 result := "英"
+            else
+                result := "中"
 
             DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
             return result
@@ -760,8 +748,8 @@ DetectIMEViaIMM32() {
         if (hIMEWnd) {
             result := SendMessage(0x283, 0x001, 0, , "ahk_id " . hIMEWnd)
             DetectHiddenWindows(savedDetectHiddenWindows)
-            ; 按位判断：bit 0 = 0 表示英文模式，bit 0 = 1 表示中文模式
-            return (result & 1) ? "英" : "中"
+            ; 微软拼音: result & 0x0001 = 0 表示中文，非0 表示英文
+            return (result & 0x0001) ? "英" : "中"
         }
 
         DetectHiddenWindows(savedDetectHiddenWindows)
