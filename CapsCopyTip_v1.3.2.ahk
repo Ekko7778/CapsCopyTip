@@ -335,7 +335,7 @@ ShowSettings(*) {
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
     settingsGui.Add("Link", "x40 y507", '<a href="https://github.com/Ekko7778/AllInOneNotification">@Ekko7778</a>')
-    settingsGui.Add("Text", "x230 y507", "© 2026 MIT")
+    settingsGui.Add("Text", "x150 y507", "© 2026 Ekko7778 - MIT License")
 
     settingsGui.Show("w340 h545")
 }
