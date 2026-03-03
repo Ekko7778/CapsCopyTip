@@ -375,6 +375,9 @@ ShowSettings(*) {
     settingsGui.ctl_bold.Value := tipFontBold
     settingsGui.ctl_invert := settingsGui.Add("CheckBox", "x20 y447 w150", "反转输入法检测")
     settingsGui.ctl_invert.Value := imeDetectInvert
+    settingsGui.SetFont("s9", "Microsoft YaHei")
+    settingsGui.Add("Text", "x169 y448 w220 c666666", "中/英显示反了？试试✓这个")
+    settingsGui.SetFont("s10", "Microsoft YaHei")
 
     ; 分割线
     settingsGui.Add("Text", "x10 y475 w320 h1 BackgroundDDDDDD")
