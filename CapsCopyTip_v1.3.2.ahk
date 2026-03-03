@@ -7,8 +7,6 @@
 ; - 右键托盘图标可打开设置
 ; ============================================================
 
-
-
 #SingleInstance Force
 Persistent
 
@@ -35,7 +33,7 @@ global showIMEStatus := true      ; 显示中/英状态
 global imeDetectInvert := false   ; 反转输入法检测逻辑（某些输入法需要）
 
 ; 提示位置设置
-global tipPosition := 1           ; 提示位置: 1=鼠标附近, 2=屏幕中央, 3=屏幕顶部, 4=屏幕底部
+global tipPosition := 1           ; 提示位置: 1=跟随鼠标, 2=屏幕中央, 3=屏幕顶部, 4=屏幕底部
 global tipMouseOffset := 10       ; 鼠标附近时的偏移距离(像素)
 global tipTopOffset := 50         ; 屏幕顶部偏移距离(像素)
 global tipBottomOffset := 100     ; 屏幕底部偏移距离(像素)
@@ -217,11 +215,7 @@ SaveConfig() {
 ; ============================================================
 IsStartupEnabled() {
     global
-    exePath := A_ScriptFullPath
-    if (A_IsCompiled)
-        exePath := A_ScriptFullPath
-    else
-        exePath := A_ScriptDir . "\CapsCopyTip.exe"
+    exePath := A_IsCompiled ? A_ScriptFullPath : A_ScriptDir . "\CapsCopyTip.exe"
 
     try {
         regValue := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip", "")
@@ -297,9 +291,9 @@ ShowSettings(*) {
     ; === 显示时长 ===
     settingsGui.Add("GroupBox", "x10 y125 w300 h80", "显示时长")
     settingsGui.Add("Text", "x20 y148 w150", "大小写提示 (ms):")
-    settingsGui.ctl_capsDur := settingsGui.Add("Edit", "x180 y145 w60", capsShowDuration)
+    settingsGui.ctl_capsDur := settingsGui.Add("Edit", "x180 y145 w60 Number", capsShowDuration)
     settingsGui.Add("Text", "x20 y178 w150", "复制提示 (ms):")
-    settingsGui.ctl_copyDur := settingsGui.Add("Edit", "x180 y175 w60", copyShowDuration)
+    settingsGui.ctl_copyDur := settingsGui.Add("Edit", "x180 y175 w60 Number", copyShowDuration)
 
     ; === 提示位置 ===
     settingsGui.Add("GroupBox", "x10 y210 w300 h135", "提示位置")
@@ -308,13 +302,13 @@ ShowSettings(*) {
     settingsGui.ctl_pos3 := settingsGui.Add("Radio", "x20 y289 w80" . (tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
     settingsGui.ctl_pos4 := settingsGui.Add("Radio", "x20 y316 w80" . (tipPosition = 4 ? " Checked" : ""), "屏幕底部")
     settingsGui.Add("Text", "x180 y265 w30", "偏移:")
-    settingsGui.ctl_mouseOffset := settingsGui.Add("Edit", "x220 y262 w40", tipMouseOffset)
+    settingsGui.ctl_mouseOffset := settingsGui.Add("Edit", "x220 y262 w40 Number", tipMouseOffset)
     settingsGui.Add("Text", "x265 y265", "px")
     settingsGui.Add("Text", "x180 y292 w30", "偏移:")
-    settingsGui.ctl_topOffset := settingsGui.Add("Edit", "x220 y289 w40", tipTopOffset)
+    settingsGui.ctl_topOffset := settingsGui.Add("Edit", "x220 y289 w40 Number", tipTopOffset)
     settingsGui.Add("Text", "x265 y292", "px")
     settingsGui.Add("Text", "x180 y319 w30", "偏移:")
-    settingsGui.ctl_bottomOffset := settingsGui.Add("Edit", "x220 y316 w40", tipBottomOffset)
+    settingsGui.ctl_bottomOffset := settingsGui.Add("Edit", "x220 y316 w40 Number", tipBottomOffset)
     settingsGui.Add("Text", "x265 y319", "px")
 
     ; === 外观样式 ===
@@ -322,7 +316,7 @@ ShowSettings(*) {
     settingsGui.ctl_lightMode := settingsGui.Add("CheckBox", "x20 y375 w80", "浅色模式")
     settingsGui.ctl_lightMode.Value := tipLightMode
     settingsGui.Add("Text", "x20 y405 w40", "字号:")
-    settingsGui.ctl_fontSize := settingsGui.Add("Edit", "x60 y402 w40", tipFontSize)
+    settingsGui.ctl_fontSize := settingsGui.Add("Edit", "x60 y402 w40 Number", tipFontSize)
     settingsGui.ctl_bold := settingsGui.Add("CheckBox", "x180 y405 w60", "加粗")
     settingsGui.ctl_bold.Value := tipFontBold
     settingsGui.ctl_invert := settingsGui.Add("CheckBox", "x20 y435 w150", "反转输入法检测")
@@ -474,10 +468,6 @@ ShowTip(text, duration := 0) {
     global tipGui, tipPosition, tipMouseOffset, tipTopOffset, tipBottomOffset, tipFontSize, tipFontBold, tipLightMode
     static tipText := ""
 
-    ; 获取鼠标位置（使用屏幕坐标）
-    CoordMode "Mouse", "Screen"
-    MouseGetPos(&mx, &my)
-
     ; 如果 GUI 已存在、窗口有效、且文本控件有效，快速更新
     if (IsObject(tipGui) && WinExist("ahk_id " . tipGui.Hwnd) && IsObject(tipText)) {
         ; 直接更新文本（最快方式）
@@ -485,6 +475,8 @@ ShowTip(text, duration := 0) {
 
         ; 只在鼠标附近模式时更新位置
         if (tipPosition = 1) {
+            CoordMode "Mouse", "Screen"
+            MouseGetPos(&mx, &my)
             tipGui.Show("x" . (mx + tipMouseOffset) . " y" . (my + tipMouseOffset) . " NA")
         }
     } else {
@@ -512,6 +504,8 @@ ShowTip(text, duration := 0) {
 
         ; 计算位置
         if (tipPosition = 1) {
+            CoordMode "Mouse", "Screen"
+            MouseGetPos(&mx, &my)
             gx := mx + tipMouseOffset
             gy := my + tipMouseOffset
         } else if (tipPosition = 2) {
