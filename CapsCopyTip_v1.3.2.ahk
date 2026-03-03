@@ -330,10 +330,18 @@ ShowSettings(*) {
     ; 窗口关闭时清理（点击 X 关闭）
     settingsGui.OnEvent("Close", Settings_CancelAndClose)
 
-    ; GitHub 链接
-    settingsGui.Add("Link", "x105 y505", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub @Ekko7778</a>')
+    ; GitHub 图标 + 版权
+    pic := settingsGui.Add("Picture", "x20 y505 w16 h16", "github.ico")
+    pic.OnEvent("Click", OpenGitHub)
+    settingsGui.SetFont("s8", "Microsoft YaHei")
+    settingsGui.Add("Link", "x40 y507", '<a href="https://github.com/Ekko7778/AllInOneNotification">@Ekko7778</a>')
+    settingsGui.Add("Text", "x230 y507", "© 2026 MIT")
 
     settingsGui.Show("w340 h545")
+}
+
+OpenGitHub(*) {
+    Run("https://github.com/Ekko7778/AllInOneNotification")
 }
 
 ; 独立的事件处理函数 - 通过参数接收 GUI，避免闭包捕获
