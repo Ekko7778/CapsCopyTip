@@ -300,11 +300,13 @@ ShowSettings(*) {
         return
     }
 
-    settingsGui := Gui("+Owner -Caption", "CapsCopyTip v" . VERSION)
+    settingsGui := Gui("+Owner", "CapsCopyTip v" . VERSION)
     settingsGui.SetFont("s10", "Microsoft YaHei")
 
     ; === 功能开关 ===
-    settingsGui.Add("GroupBox", "x10 y10 w320 h110", "功能开关")
+    settingsGui.SetFont("Bold")
+    settingsGui.Add("Text", "x10 y10", "功能开关")
+    settingsGui.SetFont("Norm")
     settingsGui.ctl_startup := settingsGui.Add("CheckBox", "x20 y30 w100", "开机启动")
     settingsGui.ctl_startup.Value := IsStartupEnabled()
     settingsGui.ctl_caret := settingsGui.Add("CheckBox", "x200 y30 w100", "光标指示器")
@@ -321,55 +323,61 @@ ShowSettings(*) {
     settingsGui.ctl_caps.OnEvent("Click", Settings_UpdateIMEState)
 
     ; === 显示时长 ===
-    settingsGui.Add("GroupBox", "x10 y125 w320 h80", "显示时长")
-    settingsGui.Add("Text", "x20 y148 w150", "大小写提示 (ms):")
-    settingsGui.ctl_capsDur := settingsGui.Add("Edit", "x180 y145 w60 Number", capsShowDuration)
-    settingsGui.Add("Text", "x20 y178 w150", "复制提示 (ms):")
-    settingsGui.ctl_copyDur := settingsGui.Add("Edit", "x180 y175 w60 Number", copyShowDuration)
+    settingsGui.SetFont("Bold")
+    settingsGui.Add("Text", "x10 y115", "显示时长")
+    settingsGui.SetFont("Norm")
+    settingsGui.Add("Text", "x20 y138 w150", "大小写提示 (ms):")
+    settingsGui.ctl_capsDur := settingsGui.Add("Edit", "x180 y135 w60 Number", capsShowDuration)
+    settingsGui.Add("Text", "x20 y168 w150", "复制提示 (ms):")
+    settingsGui.ctl_copyDur := settingsGui.Add("Edit", "x180 y165 w60 Number", copyShowDuration)
 
     ; === 提示位置 ===
-    settingsGui.Add("GroupBox", "x10 y210 w320 h135", "提示位置")
-    settingsGui.ctl_pos2 := settingsGui.Add("Radio", "x20 y235 w100 +Group" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
-    settingsGui.ctl_pos1 := settingsGui.Add("Radio", "x20 y262 w80" . (tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
-    settingsGui.ctl_pos3 := settingsGui.Add("Radio", "x20 y289 w80" . (tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
-    settingsGui.ctl_pos4 := settingsGui.Add("Radio", "x20 y316 w80" . (tipPosition = 4 ? " Checked" : ""), "屏幕底部")
-    settingsGui.Add("Text", "x180 y265 w30", "偏移:")
-    settingsGui.ctl_mouseOffset := settingsGui.Add("Edit", "x220 y262 w40 Number", tipMouseOffset)
-    settingsGui.Add("Text", "x265 y265", "px")
-    settingsGui.Add("Text", "x180 y292 w30", "偏移:")
-    settingsGui.ctl_topOffset := settingsGui.Add("Edit", "x220 y289 w40 Number", tipTopOffset)
-    settingsGui.Add("Text", "x265 y292", "px")
-    settingsGui.Add("Text", "x180 y319 w30", "偏移:")
-    settingsGui.ctl_bottomOffset := settingsGui.Add("Edit", "x220 y316 w40 Number", tipBottomOffset)
-    settingsGui.Add("Text", "x265 y319", "px")
+    settingsGui.SetFont("Bold")
+    settingsGui.Add("Text", "x10 y200", "提示位置")
+    settingsGui.SetFont("Norm")
+    settingsGui.ctl_pos2 := settingsGui.Add("Radio", "x20 y225 w100 +Group" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
+    settingsGui.ctl_pos1 := settingsGui.Add("Radio", "x20 y252 w80" . (tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
+    settingsGui.ctl_pos3 := settingsGui.Add("Radio", "x20 y279 w80" . (tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
+    settingsGui.ctl_pos4 := settingsGui.Add("Radio", "x20 y306 w80" . (tipPosition = 4 ? " Checked" : ""), "屏幕底部")
+    settingsGui.Add("Text", "x180 y255 w30", "偏移:")
+    settingsGui.ctl_mouseOffset := settingsGui.Add("Edit", "x220 y252 w40 Number", tipMouseOffset)
+    settingsGui.Add("Text", "x265 y255", "px")
+    settingsGui.Add("Text", "x180 y282 w30", "偏移:")
+    settingsGui.ctl_topOffset := settingsGui.Add("Edit", "x220 y279 w40 Number", tipTopOffset)
+    settingsGui.Add("Text", "x265 y282", "px")
+    settingsGui.Add("Text", "x180 y309 w30", "偏移:")
+    settingsGui.ctl_bottomOffset := settingsGui.Add("Edit", "x220 y306 w40 Number", tipBottomOffset)
+    settingsGui.Add("Text", "x265 y309", "px")
 
     ; === 外观样式 ===
-    settingsGui.Add("GroupBox", "x10 y350 w320 h105", "外观样式（默认深色）")
-    settingsGui.ctl_lightMode := settingsGui.Add("CheckBox", "x20 y375 w80", "浅色模式")
+    settingsGui.SetFont("Bold")
+    settingsGui.Add("Text", "x10 y340", "外观样式（默认深色）")
+    settingsGui.SetFont("Norm")
+    settingsGui.ctl_lightMode := settingsGui.Add("CheckBox", "x20 y365 w80", "浅色模式")
     settingsGui.ctl_lightMode.Value := tipLightMode
-    settingsGui.Add("Text", "x20 y405 w40", "字号:")
-    settingsGui.ctl_fontSize := settingsGui.Add("Edit", "x60 y402 w40 Number", tipFontSize)
-    settingsGui.ctl_bold := settingsGui.Add("CheckBox", "x180 y405 w60", "加粗")
+    settingsGui.Add("Text", "x20 y395 w40", "字号:")
+    settingsGui.ctl_fontSize := settingsGui.Add("Edit", "x60 y392 w40 Number", tipFontSize)
+    settingsGui.ctl_bold := settingsGui.Add("CheckBox", "x180 y395 w60", "加粗")
     settingsGui.ctl_bold.Value := tipFontBold
-    settingsGui.ctl_invert := settingsGui.Add("CheckBox", "x20 y435 w150", "反转输入法检测")
+    settingsGui.ctl_invert := settingsGui.Add("CheckBox", "x20 y425 w150", "反转输入法检测")
     settingsGui.ctl_invert.Value := imeDetectInvert
 
     ; === 按钮 ===
-    settingsGui.Add("Button", "x25 y465 w80", "恢复默认").OnEvent("Click", Settings_ResetDefaults)
-    settingsGui.Add("Button", "x125 y465 w80 Default", "保存").OnEvent("Click", Settings_SaveAndClose)
-    settingsGui.Add("Button", "x225 y465 w80", "取消").OnEvent("Click", Settings_CancelAndClose)
+    settingsGui.Add("Button", "x25 y455 w80", "恢复默认").OnEvent("Click", Settings_ResetDefaults)
+    settingsGui.Add("Button", "x125 y455 w80 Default", "保存").OnEvent("Click", Settings_SaveAndClose)
+    settingsGui.Add("Button", "x225 y455 w80", "取消").OnEvent("Click", Settings_CancelAndClose)
 
     ; 窗口关闭时清理（点击 X 关闭）
     settingsGui.OnEvent("Close", Settings_CancelAndClose)
 
     ; GitHub 图标 + 版权
-    pic := settingsGui.Add("Picture", "x20 y508 w16 h16", "github.ico")
+    pic := settingsGui.Add("Picture", "x20 y498 w16 h16", "github.ico")
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
-    settingsGui.Add("Link", "x40 y510", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
-    settingsGui.Add("Text", "x120 y510", "© 2026 作者 Ekko7778 - MIT License")
+    settingsGui.Add("Link", "x40 y500", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
+    settingsGui.Add("Text", "x120 y500", "© 2026 作者 Ekko7778 - MIT License")
 
-    settingsGui.Show("w340 h545")
+    settingsGui.Show("w340 h535")
 }
 
 OpenGitHub(*) {
