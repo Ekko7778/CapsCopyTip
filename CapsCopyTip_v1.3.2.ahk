@@ -376,22 +376,25 @@ ShowSettings(*) {
     settingsGui.ctl_invert := settingsGui.Add("CheckBox", "x20 y447 w150", "反转输入法检测")
     settingsGui.ctl_invert.Value := imeDetectInvert
 
+    ; 分割线
+    settingsGui.Add("Text", "x10 y475 w320 h1 BackgroundDDDDDD")
+
     ; === 按钮 ===
-    settingsGui.Add("Button", "x25 y477 w80", "恢复默认").OnEvent("Click", Settings_ResetDefaults)
-    settingsGui.Add("Button", "x125 y477 w80 Default", "保存").OnEvent("Click", Settings_SaveAndClose)
-    settingsGui.Add("Button", "x225 y477 w80", "取消").OnEvent("Click", Settings_CancelAndClose)
+    settingsGui.Add("Button", "x25 y490 w80", "恢复默认").OnEvent("Click", Settings_ResetDefaults)
+    settingsGui.Add("Button", "x125 y490 w80 Default", "保存").OnEvent("Click", Settings_SaveAndClose)
+    settingsGui.Add("Button", "x225 y490 w80", "取消").OnEvent("Click", Settings_CancelAndClose)
 
     ; 窗口关闭时清理（点击 X 关闭）
     settingsGui.OnEvent("Close", Settings_CancelAndClose)
 
     ; GitHub 图标 + 版权
-    pic := settingsGui.Add("Picture", "x20 y520 w16 h16", "github.ico")
+    pic := settingsGui.Add("Picture", "x20 y533 w16 h16", "github.ico")
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
-    settingsGui.Add("Link", "x40 y522", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
-    settingsGui.Add("Text", "x120 y522", "© 2026 作者 Ekko7778 - MIT License")
+    settingsGui.Add("Link", "x40 y535", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
+    settingsGui.Add("Text", "x120 y535", "© 2026 作者 Ekko7778 - MIT License")
 
-    settingsGui.Show("w340 h555")
+    settingsGui.Show("w340 h568")
 }
 
 OpenGitHub(*) {
