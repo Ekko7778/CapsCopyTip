@@ -17,31 +17,33 @@ Persistent
 #include lib\utils\Merge.ahk
 
 ; ============================================================
-; 全局设置
+; 全局设置（默认配置）
+; 注意：修改以下数值会改变脚本的默认配置
+; 用户也可以在设置窗口中修改，保存后会写入 config.ini 覆盖默认值
 ; ============================================================
 global VERSION := "1.3.3"
-global capsShowDuration := 800    ; 大小写提示显示时间
-global copyShowDuration := 800    ; 复制提示显示时间
+global capsShowDuration := 800    ; 大小写提示显示时间 (ms)
+global copyShowDuration := 800    ; 复制提示显示时间 (ms)
 global lastCapsState := GetKeyState("CapsLock", "T")
 global configPath := A_ScriptDir . "\config.ini"
 
 ; 功能开关
-global enableCapsTip := true      ; 启用大小写提示
-global enableCopyTip := true      ; 启用复制提示
-global enableCaretIndicator := true  ; 启用光标指示器
-global showIMEStatus := true      ; 显示中/英状态
-global imeDetectInvert := false   ; 反转输入法检测逻辑（某些输入法需要）
+global enableCapsTip := true      ; 大小写提示: true=启用, false=禁用
+global enableCopyTip := true      ; 复制提示: true=启用, false=禁用
+global enableCaretIndicator := true  ; 光标指示器: true=启用, false=禁用
+global showIMEStatus := true      ; 显示中/英状态: true=显示, false=隐藏
+global imeDetectInvert := false   ; 反转输入法检测: true=反转（某些输入法需要）, false=正常
 
 ; 提示位置设置
 global tipPosition := 1           ; 提示位置: 1=跟随鼠标, 2=屏幕中央, 3=屏幕顶部, 4=屏幕底部
-global tipMouseOffset := 10       ; 鼠标附近时的偏移距离(像素)
-global tipTopOffset := 50         ; 屏幕顶部偏移距离(像素)
-global tipBottomOffset := 100     ; 屏幕底部偏移距离(像素)
+global tipMouseOffset := 10       ; 跟随鼠标模式偏移 (px)
+global tipTopOffset := 50         ; 屏幕顶部模式偏移 (px)
+global tipBottomOffset := 100     ; 屏幕底部模式偏移 (px)
 
 ; 外观设置
-global tipFontSize := 9           ; 字体大小
-global tipFontBold := true        ; 字体加粗
-global tipLightMode := false      ; 浅色模式 (false=深色, true=浅色)
+global tipFontSize := 9           ; 字号 (8-72)
+global tipFontBold := true        ; 字体加粗: true=加粗, false=正常
+global tipLightMode := false      ; 颜色模式: false=深色, true=浅色
 
 ; 光标指示器实例
 global caretIndicatorInst := ""
@@ -335,7 +337,7 @@ ShowSettings(*) {
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
     settingsGui.Add("Link", "x40 y510", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
-    settingsGui.Add("Text", "x140 y510", "© 2026 Ekko7778 - MIT License")
+    settingsGui.Add("Text", "x120 y510", "© 2026 作者 Ekko7778 - MIT License")
 
     settingsGui.Show("w340 h545")
 }
@@ -352,21 +354,30 @@ Settings_UpdateIMEState(ctrl, *) {
 
 Settings_ResetDefaults(ctrl, *) {
     g := ctrl.Gui
-    g.ctl_caps.Value := true
-    g.ctl_ime.Value := true
-    g.ctl_ime.Enabled := true
-    g.ctl_copy.Value := true
-    g.ctl_caret.Value := true
-    g.ctl_capsDur.Value := 800
-    g.ctl_copyDur.Value := 800
-    g.ctl_pos1.Value := true
-    g.ctl_mouseOffset.Value := 10
-    g.ctl_topOffset.Value := 50
-    g.ctl_bottomOffset.Value := 100
-    g.ctl_fontSize.Value := 9
-    g.ctl_bold.Value := true
-    g.ctl_lightMode.Value := false
-    g.ctl_invert.Value := false
+
+    ; ========== 功能开关 ==========
+    g.ctl_startup.Value := false      ; 开机启动: false=关闭, true=开启
+    g.ctl_caps.Value := true          ; 大小写提示
+    g.ctl_ime.Value := true           ; 显示中/英状态
+    g.ctl_ime.Enabled := true         ; 启用中/英状态选项
+    g.ctl_copy.Value := true          ; 复制提示
+    g.ctl_caret.Value := true         ; 光标指示器
+
+    ; ========== 显示时长 ==========
+    g.ctl_capsDur.Value := 800        ; 大小写提示显示时间 (ms)
+    g.ctl_copyDur.Value := 800        ; 复制提示显示时间 (ms)
+
+    ; ========== 提示位置 ==========
+    g.ctl_pos1.Value := true          ; 位置: 1=跟随鼠标, 2=屏幕中央, 3=屏幕顶部, 4=屏幕底部
+    g.ctl_mouseOffset.Value := 10     ; 鼠标模式偏移 (px)
+    g.ctl_topOffset.Value := 50       ; 顶部模式偏移 (px)
+    g.ctl_bottomOffset.Value := 100   ; 底部模式偏移 (px)
+
+    ; ========== 外观样式 ==========
+    g.ctl_fontSize.Value := 9         ; 字号 (8-72)
+    g.ctl_bold.Value := true          ; 字体加粗
+    g.ctl_lightMode.Value := false    ; 浅色模式: false=深色, true=浅色
+    g.ctl_invert.Value := false       ; 反转输入法检测逻辑
 }
 
 Settings_CancelAndClose(ctrlOrGui, *) {
@@ -488,6 +499,12 @@ ShowTip(text, duration := 0) {
             tipGui.Show("x" . (mx + tipMouseOffset) . " y" . (my + tipMouseOffset) . " NA")
         }
     } else {
+        ; 销毁旧的 GUI（防止重复窗口）
+        if (IsObject(tipGui)) {
+            try tipGui.Destroy()
+            tipGui := ""
+            tipText := ""
+        }
         ; 创建提示窗口
         tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
         ; 根据浅色/深色模式设置颜色
