@@ -27,7 +27,7 @@ global DefaultConfig := {
     enableCopyTip: true,         ; 复制提示: true=启用, false=禁用
     enableCaretIndicator: true,  ; 光标指示器: true=启用, false=禁用
     showIMEStatus: true,         ; 显示中/英状态: true=显示, false=隐藏
-    imeDetectInvert: false,      ; 反转输入法检测: true=反转（某些输入法需要）, false=正常
+    imeDetectInvert: true,       ; 反转输入法检测: true=反转（搜狗等输入法需要）, false=正常（微软拼音）
 
     ; 显示时长
     capsShowDuration: 800,       ; 大小写提示显示时间 (ms)
@@ -52,6 +52,7 @@ global VERSION := "1.0.10"
 global capsShowDuration := DefaultConfig.capsShowDuration
 global copyShowDuration := DefaultConfig.copyShowDuration
 global lastCapsState := GetKeyState("CapsLock", "T")
+global lastCapsChangeTime := 0
 global configPath := A_ScriptDir . "\config.ini"
 
 ; 功能开关
@@ -131,32 +132,27 @@ if (enableCapsTip) {
     SetTimer(CheckCapsLock, 50)
 }
 
-; Shift 组合键检测：使用 InputHook 监控按键
-global shiftInputHook := ""
+; Shift 释放检测：使用热键替代定时器轮询，响应更快
+~*LShift up::
+~*RShift up:: {
+    global enableCapsTip, lastCapsChangeTime
 
-~Shift:: {
-    if (enableCapsTip) {
-        ; 检测其他修饰键是否被按住（Shift+Ctrl、Shift+Alt 等）
-        if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
-            return
+    if (!enableCapsTip)
+        return
 
-        ; 启动 InputHook 监控任意按键（非阻塞）
-        shiftInputHook := InputHook("V L1 T0.5", "{Shift}")
-        shiftInputHook.Start()
+    ; 检查是否是组合键（Ctrl/Alt/Win 被按住）
+    if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
+        return
 
-        KeyWait("Shift")
+    ; 防抖：检查距离上次 CapsLock 状态变化的时间
+    if (A_TickCount - lastCapsChangeTime < 80)
+        return
 
-        ; 检查是否在 Shift 按下期间有其他键被按下
-        ; InProgress = true 表示没有其他键按下，是单独的 Shift 按键
-        if (shiftInputHook.InProgress) {
-            ; 等待 IME 切换完成后再检测状态
-            Sleep(50)
-            ShowCapsStatus(true)  ; 强制刷新 IME 状态
-        }
+    ; 等待 IME 切换完成
+    Sleep(30)
 
-        shiftInputHook.Stop()
-        shiftInputHook := ""
-    }
+    ; 强制刷新 IME 状态
+    ShowCapsStatus(true)
 }
 
 ; ============================================================
@@ -391,7 +387,7 @@ ShowSettings(*) {
     pic := settingsGui.Add("Picture", "x20 y533 w16 h16", "assets/github.ico")
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
-    settingsGui.Add("Link", "x40 y535", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
+    settingsGui.Add("Link", "x40 y535", '<a href="https://github.com/Ekko7778/CapsCopyTip">GitHub</a>')
     settingsGui.Add("Text", "x140 y535", "© 2026 作者 Ekko7778 - MIT License")
 
     settingsGui.Show("w340 h568")
@@ -637,13 +633,16 @@ HideTip() {
 ; CapsLock 状态检查
 ; ============================================================
 CheckCapsLock() {
-    global lastCapsState, enableCapsTip
+    global lastCapsState, enableCapsTip, lastCapsChangeTime
+
     if (!enableCapsTip)
         return
 
+    ; 检测 CapsLock 状态变化
     current := GetKeyState("CapsLock", "T")
     if (current != lastCapsState) {
         lastCapsState := current
+        lastCapsChangeTime := A_TickCount  ; 记录 CapsLock 状态变化时间
         ShowCapsStatus()
     }
 }
@@ -653,6 +652,7 @@ CheckCapsLock() {
 ; ============================================================
 ShowCapsStatus(forceRefreshIME := false) {
     global capsShowDuration, enableCapsTip, showIMEStatus
+    static lastIMEState := "中"  ; 默认中文模式
 
     if (!enableCapsTip)
         return
@@ -663,10 +663,15 @@ ShowCapsStatus(forceRefreshIME := false) {
 
     ; 根据开关决定是否显示中/英状态
     if (showIMEStatus) {
-        ; 每次都实际检测 IME 状态（不再用手动反转）
+        ; 检测 IME 状态
         ime := GetIMEStatus(forceRefreshIME)
+        if (ime != "")
+            lastIMEState := ime
+        else
+            ime := lastIMEState  ; 检测失败时使用上次状态
+
         ; 合并显示
-        tip := capsIcon . " | " . (ime != "" ? ime : "英")
+        tip := capsIcon . " | " . ime
     } else {
         ; 只显示大小写
         tip := capsIcon
@@ -684,22 +689,20 @@ GetIMEStatus(forceRefresh := false) {
     static lastCheckTime := 0
     static lastWindowHash := 0
 
-    ; 防抖：150ms 内直接返回上次结果
-    if (!forceRefresh && A_TickCount - lastCheckTime < 150)
-        return lastResult
+    ; 防抖：150ms 内且同一窗口直接返回上次结果
+    ; forceRefresh = true 时跳过所有缓存
+    if (!forceRefresh) {
+        if (A_TickCount - lastCheckTime < 150)
+            return lastResult
+
+        hWnd := WinExist("A")
+        if (hWnd && hWnd = lastWindowHash)
+            return lastResult
+    }
 
     currentResult := ""
-    currentWindowHash := 0
 
     try {
-        hWnd := WinExist("A")
-        if (hWnd) {
-            currentWindowHash := hWnd
-            if (!forceRefresh && currentWindowHash = lastWindowHash) {
-                return lastResult
-            }
-        }
-
         currentResult := DetectIMEViaKeyboardLayout()
         if (currentResult = "") {
             currentResult := DetectIMEViaIMM32()
@@ -708,11 +711,9 @@ GetIMEStatus(forceRefresh := false) {
     }
 
     if (currentResult != "") {
-        ; 统一处理反转逻辑
-        if (imeDetectInvert)
-            currentResult := (currentResult = "中") ? "英" : "中"
+        ; 统一处理反转逻辑（已移除)
         lastResult := currentResult
-        lastWindowHash := currentWindowHash
+        lastWindowHash := WinExist("A")
     }
 
     lastCheckTime := A_TickCount
@@ -739,17 +740,17 @@ DetectIMEViaKeyboardLayout() {
 
         hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UPtr")
         if (hIMC) {
-            convMode := 0
-            DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &convMode, "UInt*", 0)
-
-            ; 微软拼音: convMode & 0x0001 = 0 表示中文，非0 表示英文
-            if (convMode & 0x0001)
-                result := "英"
-            else
-                result := "中"
-
-            DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
-            return result
+            ; 优先使用 ImmGetOpenStatus（对搜狗输入法更准确）
+            isOpen := DllCall("imm32\ImmGetOpenStatus", "Ptr", hIMC, "Int")
+            if (isOpen) {
+                ; IME 打开 = 中文模式
+                DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
+                return "中"
+            } else {
+                ; IME 关闭 = 英文模式
+                DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
+                return "英"
+            }
         }
     } catch {
     }
