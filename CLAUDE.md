@@ -38,6 +38,35 @@ rm -f /d/Desktop/test/CapsCopyTip.exe && \
 
 ---
 
+## 版本命名规范
+
+遵循 [SemVer 2.0.0](https://semver.org/) 语义化版本规范：
+
+- **MAJOR（第一位）**：不兼容的 API 修改
+- **MINOR（第二位）**：向后兼容的新功能
+- **PATCH（第三位）**：向后兼容的 Bug 修复
+
+### 规则
+
+1. MINOR 增加时，PATCH 重置为 0
+2. 同一 MINOR 版本下的 PATCH 连续递增（1, 2, 3...）
+3. 合并碎片化提交，不要每个 commit 都发版
+
+### 当前版本规划
+
+| 版本 | 类型 | 内容 |
+|:-----|:-----|:-----|
+| v1.0.0 | 初始 | 大小写 + 输入法 + 复制提示 |
+| v1.0.1 | PATCH | IME 权限 + 窗口闪烁 + 位置偏移修复 |
+| v1.1.0 | MINOR | 托盘菜单 + 设置窗口 + 配置持久化 |
+| v1.2.0 | MINOR | 光标标记 + 浅色模式 + 偏移设置 |
+| v1.2.1 | PATCH | 剪贴板防抖 + IME 状态反转 + Stop() 修复 |
+| v1.3.0 | MINOR | 内置 CaretIndicator + 中/英状态开关 |
+| v1.3.1 | PATCH | 内存泄漏 + IME 检测优化 |
+| v1.4.0 | MINOR | UI 重构 + DefaultConfig |
+
+---
+
 ## 开发笔记
 
 ### SendMessage 权限问题

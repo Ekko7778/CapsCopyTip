@@ -1,5 +1,5 @@
 ; ============================================================
-; CapsCopyTip v1.3.3 (AutoHotkey v2)
+; CapsCopyTip v1.4.0 (AutoHotkey v2)
 ; 功能：合并大小写提示 + 复制提示 + 光标语言标记
 ; - 大小写/输入法：🔒 大写 | 中 / 🔓 小写 | 英
 ; - 复制提示：显示复制的字符数/图片/文件数
@@ -48,7 +48,7 @@ global DefaultConfig := {
 ; ============================================================
 ; 全局变量（从 DefaultConfig 初始化）
 ; ============================================================
-global VERSION := "1.3.3"
+global VERSION := "1.4.0"
 global capsShowDuration := DefaultConfig.capsShowDuration
 global copyShowDuration := DefaultConfig.copyShowDuration
 global lastCapsState := GetKeyState("CapsLock", "T")
@@ -391,7 +391,7 @@ ShowSettings(*) {
     settingsGui.OnEvent("Close", Settings_CancelAndClose)
 
     ; GitHub 图标 + 版权
-    pic := settingsGui.Add("Picture", "x20 y533 w16 h16", "github.ico")
+    pic := settingsGui.Add("Picture", "x20 y533 w16 h16", "assets/github.ico")
     pic.OnEvent("Click", OpenGitHub)
     settingsGui.SetFont("s8", "Microsoft YaHei")
     settingsGui.Add("Link", "x40 y535", '<a href="https://github.com/Ekko7778/AllInOneNotification">GitHub</a>')
