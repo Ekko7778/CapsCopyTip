@@ -308,18 +308,18 @@ ShowSettings(*) {
     settingsGui.Add("Text", "x20 y10", "功能开关")
     settingsGui.SetFont("Norm")
     ; 第一行：开机启动（单独一行）
-    settingsGui.ctl_startup := settingsGui.Add("CheckBox", "x20 y32 w100", "开机启动")
+    settingsGui.ctl_startup := settingsGui.Add("CheckBox", "x20 y32 w120", "🚀 开机启动")
     settingsGui.ctl_startup.Value := IsStartupEnabled()
     ; 第二行：大小写提示 + 显示中/英状态（关联功能）
-    settingsGui.ctl_caps := settingsGui.Add("CheckBox", "x20 y57 w100", "大小写提示")
+    settingsGui.ctl_caps := settingsGui.Add("CheckBox", "x20 y57 w130", "🔠 大小写提示")
     settingsGui.ctl_caps.Value := enableCapsTip
-    settingsGui.ctl_ime := settingsGui.Add("CheckBox", "x200 y57 w120", "显示中/英状态")
+    settingsGui.ctl_ime := settingsGui.Add("CheckBox", "x200 y57 w140", "🌐 显示中/英状态")
     settingsGui.ctl_ime.Value := showIMEStatus
     settingsGui.ctl_ime.Enabled := enableCapsTip
     ; 第三行：复制提示 + 光标指示器
-    settingsGui.ctl_copy := settingsGui.Add("CheckBox", "x20 y82 w100", "复制提示")
+    settingsGui.ctl_copy := settingsGui.Add("CheckBox", "x20 y82 w130", "📋 复制提示")
     settingsGui.ctl_copy.Value := enableCopyTip
-    settingsGui.ctl_caret := settingsGui.Add("CheckBox", "x200 y82 w120", "光标指示器")
+    settingsGui.ctl_caret := settingsGui.Add("CheckBox", "x200 y82 w140", "🎯 光标指示器")
     settingsGui.ctl_caret.Value := enableCaretIndicator
 
     ; 大小写提示变化时，控制中/英状态是否可选
