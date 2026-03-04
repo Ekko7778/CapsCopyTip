@@ -305,7 +305,7 @@ ShowSettings(*) {
 
     ; === 功能开关 ===
     settingsGui.SetFont("Bold")
-    settingsGui.Add("Text", "x10 y10", "功能开关")
+    settingsGui.Add("Text", "x20 y10", "功能开关")
     settingsGui.SetFont("Norm")
     ; 第一行：开机启动（单独一行）
     settingsGui.ctl_startup := settingsGui.Add("CheckBox", "x20 y32 w100", "开机启动")
@@ -330,7 +330,7 @@ ShowSettings(*) {
 
     ; === 显示时长 ===
     settingsGui.SetFont("Bold")
-    settingsGui.Add("Text", "x10 y122", "显示时长")
+    settingsGui.Add("Text", "x20 y122", "显示时长")
     settingsGui.SetFont("Norm")
     settingsGui.Add("Text", "x20 y147 w110", "大小写提示:")
     settingsGui.ctl_capsDur := settingsGui.Add("Edit", "x200 y144 w60 h22 Number", capsShowDuration)
@@ -344,7 +344,7 @@ ShowSettings(*) {
 
     ; === 提示位置 ===
     settingsGui.SetFont("Bold")
-    settingsGui.Add("Text", "x10 y214", "提示位置")
+    settingsGui.Add("Text", "x20 y214", "提示位置")
     settingsGui.SetFont("Norm")
     settingsGui.ctl_pos2 := settingsGui.Add("Radio", "x20 y239 w100 +Group" . (tipPosition = 2 ? " Checked" : ""), "屏幕中央")
     settingsGui.ctl_pos1 := settingsGui.Add("Radio", "x20 y266 w80" . (tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
@@ -365,7 +365,7 @@ ShowSettings(*) {
 
     ; === 外观样式 ===
     settingsGui.SetFont("Bold")
-    settingsGui.Add("Text", "x10 y362", "外观样式（默认深色）")
+    settingsGui.Add("Text", "x20 y362", "外观样式（默认深色）")
     settingsGui.SetFont("Norm")
     settingsGui.ctl_lightMode := settingsGui.Add("CheckBox", "x20 y387 w80", "浅色模式")
     settingsGui.ctl_lightMode.Value := tipLightMode
