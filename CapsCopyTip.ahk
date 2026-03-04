@@ -703,15 +703,19 @@ GetIMEStatus(forceRefresh := false) {
     currentResult := ""
 
     try {
-        currentResult := DetectIMEViaKeyboardLayout()
+        ; 优先使用 IMM32 消息检测（对 Windows 11 UWP 应用更可靠）
+        currentResult := DetectIMEViaIMM32()
         if (currentResult = "") {
-            currentResult := DetectIMEViaIMM32()
+            ; 回退到键盘布局检测
+            currentResult := DetectIMEViaKeyboardLayout()
         }
     } catch {
     }
 
     if (currentResult != "") {
-        ; 统一处理反转逻辑（已移除)
+        ; 应用反转逻辑（搜狗等输入法需要）
+        if (imeDetectInvert)
+            currentResult := (currentResult = "中") ? "英" : "中"
         lastResult := currentResult
         lastWindowHash := WinExist("A")
     }
@@ -728,6 +732,20 @@ DetectIMEViaKeyboardLayout() {
         hWnd := WinExist("A")
         if (!hWnd)
             return ""
+
+        ; ===== UWP 应用特殊处理：需要获取焦点控件 =====
+        if (WinActive("ahk_class ApplicationFrameWindow")) {
+            try {
+                Focused := ControlGetFocus("A")
+                if (Focused) {
+                    ctrlHwnd := ControlGetHwnd(Focused, "A")
+                    if (ctrlHwnd)
+                        hWnd := ctrlHwnd  ; 用控件 HWND 替代窗口 HWND
+                }
+            } catch {
+                ; 获取失败则继续使用原窗口
+            }
+        }
 
         threadID := DllCall("GetWindowThreadProcessId", "Ptr", hWnd, "Ptr", 0, "UInt")
         if (!threadID)
@@ -752,6 +770,18 @@ DetectIMEViaKeyboardLayout() {
                 return "英"
             }
         }
+
+        ; ImmGetContext 失败时，回退到 ImmGetDefaultIMEWnd
+        savedDetectHiddenWindows := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "UInt", hWnd, "UInt")
+        DetectHiddenWindows(savedDetectHiddenWindows)
+
+        if (hIMEWnd) {
+            ; 使用 WM_IME_CONTROL + IMC_GETOPENSTATUS 获取状态
+            result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
+            return result ? "英" : "中"
+        }
     } catch {
     }
     return ""
@@ -767,6 +797,20 @@ DetectIMEViaIMM32() {
         hWnd := WinExist("A")
         if (!hWnd)
             return ""
+
+        ; ===== UWP 应用特殊处理：需要获取焦点控件 =====
+        if (WinActive("ahk_class ApplicationFrameWindow")) {
+            try {
+                Focused := ControlGetFocus("A")
+                if (Focused) {
+                    ctrlHwnd := ControlGetHwnd(Focused, "A")
+                    if (ctrlHwnd)
+                        hWnd := ctrlHwnd  ; 用控件 HWND 替代窗口 HWND
+                }
+            } catch {
+                ; 获取失败则继续使用原窗口
+            }
+        }
 
         DetectHiddenWindows(true)
         hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "UInt", hWnd, "UInt")
