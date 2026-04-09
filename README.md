@@ -1,5 +1,12 @@
 # CapsCopyTip
 
+[![Release](https://img.shields.io/github/v/release/Ekko7778/CapsCopyTip?style=flat-square&logo=github)](https://github.com/Ekko7778/CapsCopyTip/releases)
+[![Stars](https://img.shields.io/github/stars/Ekko7778/CapsCopyTip?style=flat-square&logo=github)](https://github.com/Ekko7778/CapsCopyTip/stargazers)
+[![Issues](https://img.shields.io/github/issues/Ekko7778/CapsCopyTip?style=flat-square&logo=github)](https://github.com/Ekko7778/CapsCopyTip/issues)
+[![License](https://img.shields.io/github/license/Ekko7778/CapsCopyTip?style=flat-square)](LICENSE)
+[![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat-square&logo=autohotkey)](https://www.autohotkey.com/)
+[![Windows](https://img.shields.io/badge/Windows-10/11-0078D6?style=flat-square&logo=windows)](https://github.com/Ekko7778/CapsCopyTip)
+
 AutoHotkey v2 脚本，合并显示大小写、输入法和复制状态提示。
 
 ## 解决的痛点
