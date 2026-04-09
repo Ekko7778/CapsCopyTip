@@ -140,12 +140,15 @@ A_TrayMenu.Add()
 A_TrayMenu.Add("🔄 重启", (*) => Reload())
 A_TrayMenu.Add("❌ 退出", (*) => ExitApp())
 
+; 单击托盘图标打开设置
 OnMessage(0x404, TrayClickHandler)
 
 TrayClickHandler(wParam, lParam, msg, hwnd) {
-    if (lParam = 0x201 || lParam = 0x203)
+    if (lParam = 0x201 || lParam = 0x203) {  ; 左键单击或双击
         ShowSettings()
-    return 0
+        return 0
+    }
+    ; 右键等其他消息不拦截，交给 AHK 默认处理（弹出菜单）
 }
 
 OnExit(OnScriptExit)
@@ -163,6 +166,7 @@ return ; 自动执行段结束
 ; 退出清理
 ; ============================================================
 OnScriptExit(exitReason, exitCode) {
+    global tipGui, settingsGui, caretIndicatorInst
     SetTimer(CheckCapsLock, 0)
     SetTimer(HideTip, 0)
 
@@ -674,8 +678,8 @@ ShowSettings(*) {
 
 SettingsClose(ctrlOrGui, *) {
     global settingsGui
-    ; 按钮控件有 .Gui 属性，GUI 对象本身没有
-    g := ctrlOrGui.HasOwnProp("Gui") ? ctrlOrGui.Gui : ctrlOrGui
+    ; Close 事件传入 Gui 对象，按钮点击传入 GuiControl（有 .Gui 属性）
+    g := ctrlOrGui.HasProp("Gui") ? ctrlOrGui.Gui : ctrlOrGui
     g.Destroy()
     settingsGui := ""
 }
