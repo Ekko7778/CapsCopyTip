@@ -116,6 +116,7 @@ global lastCapsChangeTime := 0
 global lastClipboardContent := ""
 global lastClipboardTime := 0
 global clipboardProcessing := false
+global shiftAlone := false
 global tipGui := ""
 global tipGuiText := ""
 global settingsGui := ""
@@ -464,15 +465,28 @@ ShowCapsStatus(forceRefreshIME := false) {
     ShowTip(tip, Config.capsShowDuration)
 }
 
-; Shift 释放检测：热键替代定时器轮询
+; Shift 独立按下检测：只有单独按下并释放 Shift 才触发
+~*LShift::
+~*RShift:: {
+    global shiftAlone := true
+}
+
 ~*LShift up::
 ~*RShift up:: {
-    global lastCapsChangeTime
+    global lastCapsChangeTime, shiftAlone
     if (!Config.enableCapsTip)
         return
 
-    ; 组合键不触发
+    ; 如果 Shift 不是独立按下（有其他键同时被按），不触发
+    if (!shiftAlone)
+        return
+
+    ; 释放时仍有其他修饰键按住 → 组合键，不触发
     if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
+        return
+
+    ; 释放时仍有鼠标键按住 → 组合键，不触发
+    if (GetKeyState("LButton", "P") || GetKeyState("RButton", "P") || GetKeyState("MButton", "P"))
         return
 
     ; 防抖
@@ -481,6 +495,106 @@ ShowCapsStatus(forceRefreshIME := false) {
 
     Sleep(30)
     ShowCapsStatus(true)
+}
+
+; 任意其他键按下 → 标记 Shift 不是独立按下
+~*a::
+~*b::
+~*c::
+~*d::
+~*e::
+~*f::
+~*g::
+~*h::
+~*i::
+~*j::
+~*k::
+~*l::
+~*m::
+~*n::
+~*o::
+~*p::
+~*q::
+~*r::
+~*s::
+~*t::
+~*u::
+~*v::
+~*w::
+~*x::
+~*y::
+~*z::
+~*0::
+~*1::
+~*2::
+~*3::
+~*4::
+~*5::
+~*6::
+~*7::
+~*8::
+~*9::
+~*Space::
+~*Enter::
+~*Tab::
+~*Backspace::
+~*Esc::
+~*F1::
+~*F2::
+~*F3::
+~*F4::
+~*F5::
+~*F6::
+~*F7::
+~*F8::
+~*F9::
+~*F10::
+~*F11::
+~*F12::
+~*Up::
+~*Down::
+~*Left::
+~*Right::
+~*Home::
+~*End::
+~*PgUp::
+~*PgDn::
+~*Insert::
+~*Delete::
+~*PrintScreen::
+~*ScrollLock::
+~*Pause::
+~*Numpad0::
+~*Numpad1::
+~*Numpad2::
+~*Numpad3::
+~*Numpad4::
+~*Numpad5::
+~*Numpad6::
+~*Numpad7::
+~*Numpad8::
+~*Numpad9::
+~*NumpadMult::
+~*NumpadAdd::
+~*NumpadSub::
+~*NumpadDiv::
+~*NumpadEnter::
+~*NumpadDot::
+~*`::
+~*-::
+~*=::
+~*[::
+~*]::
+~*\::
+~*;::
+~*'::
+~*,::
+~*.::
+~*/::
+~*LButton::
+~*RButton::
+~*MButton:: {
+    global shiftAlone := false
 }
 
 ; ============================================================
