@@ -591,9 +591,9 @@ ShowCapsStatus(forceRefreshIME := false) {
 ~*,::
 ~*.::
 ~*/::
-~*LButton::
-~*RButton::
-~*MButton:: {
+~*LButton up::
+~*RButton up::
+~*MButton up:: {
     global shiftAlone := false
 }
 
@@ -706,16 +706,20 @@ ShowSettings(*) {
     g.Add("Text", "x20 y214", "提示位置")
     g.SetFont("Norm")
 
-    g.ctl_pos2 := g.Add("Radio", "x20 y239 w280 +Group" . (c.tipPosition = 2 ? " Checked" : ""), "屏幕中央")
-    g.ctl_pos1 := g.Add("Radio", "x20 y266 w100" . (c.tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
-    g.ctl_mouseOffset := g.Add("Edit", "x200 y263 w60 h22 Number", c.tipMouseOffset)
-    g.Add("Text", "x265 y266", "px")
+    g.ctl_pos1 := g.Add("Radio", "x20 y239 w100 +Group" . (c.tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
+    g.ctl_pos2 := g.Add("Radio", "x20 y266 w280" . (c.tipPosition = 2 ? " Checked" : ""), "屏幕中央")
     g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
-    g.ctl_topOffset := g.Add("Edit", "x200 y290 w60 h22 Number", c.tipTopOffset)
-    g.Add("Text", "x265 y293", "px")
     g.ctl_pos4 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), "屏幕底部")
-    g.ctl_bottomOffset := g.Add("Edit", "x200 y317 w60 h22 Number", c.tipBottomOffset)
-    g.Add("Text", "x265 y320", "px")
+    ; 偏移量输入框放在所有 Radio 之后，避免打断分组
+    g.Add("Text", "x200 y242", "偏移:")
+    g.ctl_mouseOffset := g.Add("Edit", "x240 y239 w40 h22 Number", c.tipMouseOffset)
+    g.Add("Text", "x283 y242", "px")
+    g.Add("Text", "x200 y296", "偏移:")
+    g.ctl_topOffset := g.Add("Edit", "x240 y293 w40 h22 Number", c.tipTopOffset)
+    g.Add("Text", "x283 y296", "px")
+    g.Add("Text", "x200 y323", "偏移:")
+    g.ctl_bottomOffset := g.Add("Edit", "x240 y320 w40 h22 Number", c.tipBottomOffset)
+    g.Add("Text", "x283 y323", "px")
 
     g.Add("Text", "x10 y350 w320 h1 BackgroundDDDDDD")
 
