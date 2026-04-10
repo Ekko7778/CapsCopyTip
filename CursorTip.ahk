@@ -1,5 +1,5 @@
 ; ============================================================
-; CapsCopyTip v2.0.0 (AutoHotkey v2)
+; CursorTip v2.0.2 (AutoHotkey v2)
 ; 功能：大小写提示 + 复制提示
 ; - 大小写/输入法：🔒 大写 | 中 / 🔓 小写 | 英
 ; - 复制提示：显示复制的字符数/图片/文件数
@@ -12,7 +12,7 @@ Persistent
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "2.0.3"
+global VERSION := "2.0.2"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -124,7 +124,7 @@ global settingsGui := ""
 ; ============================================================
 ; 托盘菜单
 ; ============================================================
-A_TrayTip := "CapsCopyTip v" . VERSION
+A_TrayTip := "CursorTip v" . VERSION
 
 A_TrayMenu.Delete()
 A_TrayMenu.Add("⚙ 设置", ShowSettings)
@@ -212,9 +212,9 @@ ApplySettings() {
 ; 开机启动管理
 ; ============================================================
 IsStartupEnabled() {
-    exePath := A_IsCompiled ? A_ScriptFullPath : A_ScriptDir . "\CapsCopyTip.exe"
+    exePath := A_IsCompiled ? A_ScriptFullPath : A_ScriptDir . "\CursorTip.exe"
     try {
-        regValue := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip", "")
+        regValue := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CursorTip", "")
         return InStr(regValue, exePath) > 0
     } catch {
         return false
@@ -222,16 +222,16 @@ IsStartupEnabled() {
 }
 
 SetStartup(enable) {
-    exePath := A_IsCompiled ? A_ScriptFullPath : A_ScriptDir . "\CapsCopyTip.exe"
+    exePath := A_IsCompiled ? A_ScriptFullPath : A_ScriptDir . "\CursorTip.exe"
     if (enable) {
         try {
-            RegWrite(exePath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip")
+            RegWrite(exePath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CursorTip")
         } catch as e {
             MsgBox("设置开机启动失败：" . e.Message, "错误", 16)
         }
     } else {
         try {
-            RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CapsCopyTip")
+            RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CursorTip")
         } catch {
         }
     }
@@ -663,7 +663,7 @@ ShowSettings(*) {
     }
 
     c := Config
-    g := Gui("+Owner", "CapsCopyTip v" . VERSION)
+    g := Gui("+Owner", "CursorTip v" . VERSION)
     g.SetFont("s10", "Microsoft YaHei")
 
     ; === 功能开关 ===
@@ -746,9 +746,9 @@ ShowSettings(*) {
 
     ; 底部信息
     pic := g.Add("Picture", "x20 y500 w16 h16", "assets/github.ico")
-    pic.OnEvent("Click", (*) => Run("https://github.com/Ekko7778/AllInOneNotification"))
+    pic.OnEvent("Click", (*) => Run("https://github.com/zeno528/CapsCopyTip"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y502", '<a href="https://github.com/Ekko7778/CapsCopyTip">GitHub</a>')
+    g.Add("Link", "x40 y502", '<a href="https://github.com/zeno528/CapsCopyTip">GitHub</a>')  ; 仓库名暂不改
     g.Add("Text", "x200 y502", "© 2026  MIT License")
 
     g.Show("w340 h530")

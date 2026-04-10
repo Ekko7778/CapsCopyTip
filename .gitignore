@@ -8,3 +8,6 @@ CLAUDE.md
 # 编译产物
 *.exe
 config.ini
+
+# 旧版文件
+archive/

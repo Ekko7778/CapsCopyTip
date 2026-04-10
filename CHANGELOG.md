@@ -1,8 +1,16 @@
 # Changelog
 
-All notable changes to CapsCopyTip will be documented in this file.
+# Changelog
+
+All notable changes to CursorTip will be documented in this file.
 
 > **版本规范**：采用二十进制版本号，每次发布只递增 PATCH 位（第三位），PATCH 到 19 进位到 MINOR
+
+## [2.1.0] - 2026-04-10
+
+### Changed
+- 🏷️ 项目重命名为 CursorTip
+- 🧠 优化剪贴板去重逻辑，使用 fingerprint 替代全文存储
 
 ## [1.0.10] - 2026-03-04
 
