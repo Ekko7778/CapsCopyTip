@@ -1,8 +1,6 @@
 # CursorTip
 
 [![Release](https://img.shields.io/github/v/release/zeno528/CursorTip?style=flat-square&logo=github)](https://github.com/zeno528/CursorTip/releases)
-[![Stars](https://img.shields.io/github/stars/zeno528/CursorTip?style=flat-square&logo=github)](https://github.com/zeno528/CursorTip/stargazers)
-[![Issues](https://img.shields.io/github/issues/zeno528/CursorTip?style=flat-square&logo=github)](https://github.com/zeno528/CursorTip/issues)
 [![License](https://img.shields.io/github/license/zeno528/CursorTip?style=flat-square)](LICENSE)
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat-square&logo=autohotkey)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat-square&logo=windows)](https://github.com/zeno528/CursorTip)
