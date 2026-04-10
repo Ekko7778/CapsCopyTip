@@ -173,22 +173,10 @@ OnScriptExit(exitReason, exitCode) {
     }
 }
 
-; 初始化 IME 追踪状态（启动时通过 API 检测一次真实值）
+; 初始化 IME 追踪状态（默认中文，由 Shift/Ctrl+Space 翻转驱动）
 InitTrackedIMEState() {
     global trackedIMEState
-    try {
-        hWnd := WinExist("A")
-        if (hWnd) {
-            hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UPtr")
-            if (hIMC) {
-                DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &fdwConversion := 0, "UInt*", &fdwSentence := 0, "Int")
-                DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
-                trackedIMEState := (fdwConversion & 1) ? "中" : "英"
-            }
-        }
-    }
-    if (trackedIMEState = "")
-        trackedIMEState := "中"
+    trackedIMEState := "中"
 }
 
 ; ============================================================
@@ -351,18 +339,16 @@ HideTip() {
 }
 
 ; ============================================================
-; 输入法检测
-; 检测链路：ImmGetConversionStatus → ImmGetDefaultIMEWnd+SendMessage → 模式追踪
-; UWP 应用 (ApplicationFrameWindow) 因跨进程限制，前两种 API 均不可用
-; 第三层通过监听 Shift 键追踪 IME 中/英切换来推断状态
+; 输入法检测（纯翻转方案）
+; 不依赖任何 IMM32 API，仅通过 Shift/Ctrl+Space 按键追踪中/英模式
+; 适配所有第三方输入法（搜狗、微信等）及 UWP 应用
 ; ============================================================
 GetIMEStatus(forceRefresh := false) {
     global trackedIMEState
-    static lastResult := "英"
+    static lastResult := "中"
     static lastCheckTime := 0
     static lastWindowHash := 0
 
-    ; 防抖：150ms 内且同一窗口直接返回上次结果
     if (!forceRefresh) {
         if (A_TickCount - lastCheckTime < 150)
             return lastResult
@@ -371,71 +357,10 @@ GetIMEStatus(forceRefresh := false) {
             return lastResult
     }
 
-    result := ""
-
-    try {
-        hWnd := GetTargetHWND()
-        if (!hWnd)
-            throw Error()
-
-        ; 只用 ImmGetConversionStatus（在目标窗口同线程中调用才可靠）
-        result := DetectIMEViaConversionStatus(hWnd)
-    } catch {
-    }
-
-    if (result != "") {
-        ; API 成功：同步追踪状态，防止 Shift 翻转后状态漂移
-        trackedIMEState := result
-        lastResult := result
-        lastWindowHash := WinExist("A")
-    } else {
-        ; API 不可用时，使用 Shift 追踪的状态
-        result := trackedIMEState
-        lastResult := result
-        lastWindowHash := WinExist("A")
-    }
-
+    lastResult := trackedIMEState
+    lastWindowHash := WinExist("A")
     lastCheckTime := A_TickCount
     return lastResult
-}
-
-; 获取目标窗口 HWND（处理 UWP 等特殊窗口）
-GetTargetHWND() {
-    hWnd := WinExist("A")
-    if (!hWnd)
-        return 0
-
-    ; UWP 应用需要获取焦点控件
-    if (WinActive("ahk_class ApplicationFrameWindow")) {
-        try {
-            focused := ControlGetFocus("A")
-            if (focused) {
-                ctrlHwnd := ControlGetHwnd(focused, "A")
-                if (ctrlHwnd)
-                    return ctrlHwnd
-            }
-        } catch {
-        }
-    }
-    return hWnd
-}
-
-; 通过 ImmGetConversionStatus 检测（标准 API，兼容所有输入法）
-DetectIMEViaConversionStatus(hWnd) {
-    hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UPtr")
-    if (!hIMC)
-        return ""
-
-    try {
-        ; ImmGetConversionStatus 返回转换模式
-        ; fdwConversion & 0x0001 = 1 → 中文输入模式, 0 → 英文模式
-        DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &fdwConversion := 0, "UInt*", &fdwSentence := 0, "Int")
-        DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
-        return (fdwConversion & 0x0001) ? "中" : "英"
-    } catch {
-        DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
-        return ""
-    }
 }
 
 ; ============================================================
@@ -503,8 +428,6 @@ ShowCapsStatus(forceRefreshIME := false) {
 
     Sleep(30)
 
-    ; 所有应用统一使用 Shift 追踪方案
-    ; 因为 ImmGetContext 在 AHK 线程中返回 0，IMC_GETCONVERSIONMODE 不反映中英切换
     trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
 
     ShowCapsStatus(true)
@@ -520,6 +443,12 @@ ShowCapsStatus(forceRefreshIME := false) {
     Sleep(30)
     trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
     ShowCapsStatus(true)
+}
+
+; Win+Space 切换输入法时重置为中文
+~#Space:: {
+    global trackedIMEState
+    trackedIMEState := "中"
 }
 
 ; 任意其他键按下 → 标记 Shift 不是独立按下
