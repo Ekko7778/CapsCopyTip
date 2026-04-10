@@ -384,6 +384,8 @@ GetIMEStatus(forceRefresh := false) {
     }
 
     if (result != "") {
+        ; API 成功：同步追踪状态，防止 Shift 翻转后状态漂移
+        trackedIMEState := result
         lastResult := result
         lastWindowHash := WinExist("A")
     } else {
@@ -506,7 +508,17 @@ ShowCapsStatus(forceRefreshIME := false) {
     trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
 
     ShowCapsStatus(true)
+}
 
+; Ctrl+Space 切换输入法时也翻转追踪状态
+~^Space:: {
+    global trackedIMEState, lastCapsChangeTime
+    if (!Config.enableCapsTip)
+        return
+    if (A_TickCount - lastCapsChangeTime < 80)
+        return
+    Sleep(30)
+    trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
     ShowCapsStatus(true)
 }
 
