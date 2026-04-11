@@ -113,8 +113,6 @@ class Config {
 ; ============================================================
 global lastCapsState := GetKeyState("CapsLock", "T")
 global lastCapsChangeTime := 0
-global lastClipboardFingerprint := ""
-global lastClipboardTime := 0
 global clipboardProcessing := false
 global shiftAlone := false
 global tipGui := ""
@@ -599,28 +597,17 @@ ShowCapsStatus(forceRefreshIME := false) {
 ; 剪贴板监听
 ; ============================================================
 ClipChanged(dataType) {
-    global clipboardProcessing, lastClipboardFingerprint, lastClipboardTime
+    global clipboardProcessing
     if (!Config.enableCopyTip || clipboardProcessing)
+        return
+
+    ; 只响应文本和剪贴板更新事件，忽略其他格式避免同一次复制触发多次
+    if (dataType != 1 && dataType != 2)
         return
 
     clipboardProcessing := true
 
     try {
-        if (A_TickCount - lastClipboardTime < 100) {
-            clipboardProcessing := false
-            return
-        }
-
-        ; 用长度+前缀摘要去重，避免保留剪贴板全文导致内存占用
-        fingerprint := StrLen(A_Clipboard) . "|" . SubStr(A_Clipboard, 1, 200)
-        if (fingerprint = lastClipboardFingerprint) {
-            clipboardProcessing := false
-            return
-        }
-
-        lastClipboardFingerprint := fingerprint
-        lastClipboardTime := A_TickCount
-
         isFile := DllCall("IsClipboardFormatAvailable", "UInt", 15)
         isImage := DllCall("IsClipboardFormatAvailable", "UInt", 2)
               || DllCall("IsClipboardFormatAvailable", "UInt", 8)
@@ -633,7 +620,7 @@ ClipChanged(dataType) {
                 ShowTip("已复制：" . count . " 个文件", Config.copyShowDuration)
         } else if (isImage) {
             ShowTip("已复制：图片", Config.copyShowDuration)
-        } else if (dataType = 1 || dataType = 2) {
+        } else {
             length := StrLen(A_Clipboard)
             if (length > 0)
                 ShowTip("已复制：" . length . " 字符", Config.copyShowDuration)
