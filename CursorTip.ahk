@@ -12,7 +12,7 @@ Persistent
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "2.0.6"
+global VERSION := "2.0.7"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -116,12 +116,10 @@ global lastCapsChangeTime := 0
 global lastClipboardFingerprint := ""
 global lastClipboardTime := 0
 global clipboardProcessing := false
-global shiftDownTime := 0
-global ctrlShiftActive := false
+global shiftAlone := false
 global tipGui := ""
 global tipGuiText := ""
 global settingsGui := ""
-global trackedIMEState := ""  ; IME 模式追踪，启动时通过 API 初始化
 
 ; ============================================================
 ; 托盘菜单
@@ -151,7 +149,6 @@ OnExit(OnScriptExit)
 ; 启动
 ; ============================================================
 Config.Load()
-InitTrackedIMEState()
 InitMonitors()
 
 return ; 自动执行段结束
@@ -172,12 +169,6 @@ OnScriptExit(exitReason, exitCode) {
         settingsGui.Destroy()
         settingsGui := ""
     }
-}
-
-; 初始化 IME 追踪状态（默认中文，由 Shift 翻转驱动）
-InitTrackedIMEState() {
-    global trackedIMEState
-    trackedIMEState := "中"
 }
 
 ; ============================================================
@@ -350,17 +341,14 @@ HideTip() {
 }
 
 ; ============================================================
-; 输入法检测（纯翻转方案）
-; 不依赖任何 IMM32 API，仅通过 Shift 按键追踪中/英模式
-; 适配所有第三方输入法（搜狗、微信等）及 UWP 应用
+; 输入法检测 — 统一使用 ImmGetConversionStatus
 ; ============================================================
 GetIMEStatus(forceRefresh := false) {
-    global trackedIMEState
-    static lastResult := "中"
+    static lastResult := "英"
     static lastCheckTime := 0
     static lastWindowHash := 0
-    static lastKLID := ""
 
+    ; 防抖：150ms 内且同一窗口直接返回上次结果
     if (!forceRefresh) {
         if (A_TickCount - lastCheckTime < 150)
             return lastResult
@@ -369,28 +357,64 @@ GetIMEStatus(forceRefresh := false) {
             return lastResult
     }
 
-    ; 检测键盘布局是否变化（输入法切换），变化时重置为中
-    threadId := DllCall("GetWindowThreadProcessId", "Ptr", WinExist("A"), "UIntP", 0, "UInt")
-    hKL := DllCall("GetKeyboardLayout", "UInt", threadId, "Ptr")
-    currentKLID := Format("{:08x}", hKL & 0xFFFFFFFF)
-    if (lastKLID != "" && currentKLID != lastKLID)
-        trackedIMEState := "中"
-    lastKLID := currentKLID
+    result := ""
 
-    lastResult := trackedIMEState
-    lastWindowHash := WinExist("A")
+    try {
+        hWnd := WinExist("A")
+        if (!hWnd)
+            throw Error()
+
+        ; 方法1: ImmGetConversionStatus（最可靠，标准 IME 接口）
+        result := DetectIMEViaConversionStatus(hWnd)
+
+        ; 方法2: 回退到 ImmGetDefaultIMEWnd + SendMessage
+        if (result = "")
+            result := DetectIMEViaMessage(hWnd)
+    } catch {
+    }
+
+    if (result != "") {
+        lastResult := result
+        lastWindowHash := WinExist("A")
+    }
+
     lastCheckTime := A_TickCount
     return lastResult
 }
 
-; 检测当前输入法是否为微软内置输入法（通过键盘布局 ID）
-; 微软拼音/五笔等内置输入法的 KLID 为 00000804/00000404
-; 第三方输入法（搜狗、微信等）使用 E 开头的 KLID
-IsMicrosoftIME() {
-    threadId := DllCall("GetWindowThreadProcessId", "Ptr", WinExist("A"), "UIntP", 0, "UInt")
-    hKL := DllCall("GetKeyboardLayout", "UInt", threadId, "Ptr")
-    klid := Format("{:08x}", hKL & 0xFFFFFFFF)
-    return (klid = "00000804" || klid = "00000404")
+; 通过 ImmGetConversionStatus 检测（标准 API，兼容所有输入法）
+DetectIMEViaConversionStatus(hWnd) {
+    hIMC := DllCall("imm32\ImmGetContext", "Ptr", hWnd, "UPtr")
+    if (!hIMC)
+        return ""
+
+    try {
+        DllCall("imm32\ImmGetConversionStatus", "Ptr", hIMC, "UInt*", &fdwConversion := 0, "UInt*", &fdwSentence := 0, "Int")
+        DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
+        return (fdwConversion & 0x0001) ? "中" : "英"
+    } catch {
+        DllCall("imm32\ImmReleaseContext", "Ptr", hWnd, "UPtr", hIMC)
+        return ""
+    }
+}
+
+; 通过 IMM32 窗口消息检测（回退方案）
+; 使用 IMC_GETOPENSTATUS (0x005)：返回 1 = IME 打开 = 中文模式
+DetectIMEViaMessage(hWnd) {
+    saved := A_DetectHiddenWindows
+    try {
+        DetectHiddenWindows(true)
+        hIMEWnd := DllCall("imm32\ImmGetDefaultIMEWnd", "UInt", hWnd, "UInt")
+        if (hIMEWnd) {
+            result := SendMessage(0x283, 0x005, 0, , "ahk_id " . hIMEWnd)
+            DetectHiddenWindows(saved)
+            return result ? "中" : "英"
+        }
+        DetectHiddenWindows(saved)
+    } catch {
+        DetectHiddenWindows(saved)
+    }
+    return ""
 }
 
 ; ============================================================
@@ -428,46 +452,28 @@ ShowCapsStatus(forceRefreshIME := false) {
     ShowTip(tip, Config.capsShowDuration)
 }
 
-; Shift 独立按下检测：用时间戳判断期间是否有其他键按下
+; Shift 独立按下检测：只有单独按下并释放 Shift 才触发
 ~*LShift::
 ~*RShift:: {
-    global shiftDownTime, mouseDownDuringShift
-    shiftDownTime := A_TickCount
-    mouseDownDuringShift := false
-}
-
-; 记录 Shift 按住期间是否有鼠标点击
-~*LButton::
-~*RButton::
-~*MButton:: {
-    global mouseDownDuringShift
-    if (GetKeyState("Shift", "P"))
-        mouseDownDuringShift := true
+    global shiftAlone := true
 }
 
 ~*LShift up::
 ~*RShift up:: {
-    global lastCapsChangeTime, trackedIMEState, ctrlShiftActive, mouseDownDuringShift
+    global lastCapsChangeTime, shiftAlone
     if (!Config.enableCapsTip)
         return
 
-    ; Ctrl+Shift 切换输入法，重置为中文不翻转
-    if (ctrlShiftActive) {
-        ctrlShiftActive := false
-        trackedIMEState := "中"
+    ; 如果 Shift 不是独立按下（有其他键同时被按），不触发
+    if (!shiftAlone)
         return
-    }
 
     ; 释放时仍有其他修饰键按住 → 组合键，不触发
     if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
         return
 
-    ; Shift 按住期间有鼠标点击 → 组合键，不触发
-    if (mouseDownDuringShift)
-        return
-
-    ; A_PriorKey 不是 Shift → 期间有其他键按下，是组合键（如 Shift+A 打大写）
-    if (A_PriorKey != "LShift" && A_PriorKey != "RShift")
+    ; 释放时仍有鼠标键按住 → 组合键，不触发
+    if (GetKeyState("LButton", "P") || GetKeyState("RButton", "P") || GetKeyState("MButton", "P"))
         return
 
     ; 防抖
@@ -475,29 +481,108 @@ ShowCapsStatus(forceRefreshIME := false) {
         return
 
     Sleep(30)
-
-    trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
-
-    ; 仅在第三方输入法 + 开启中/英显示时才弹出提示
-    ; 微软输入法无法可靠追踪其 IME 状态，不弹提示
-    if (!IsMicrosoftIME() && Config.showIMEStatus)
-        ShowCapsStatus(true)
+    ShowCapsStatus(true)
 }
 
-; Win+Space 切换输入法时重置为中文
-~#Space:: {
-    global trackedIMEState
-    trackedIMEState := "中"
+; 任意其他键按下 → 标记 Shift 不是独立按下
+~*a::
+~*b::
+~*c::
+~*d::
+~*e::
+~*f::
+~*g::
+~*h::
+~*i::
+~*j::
+~*k::
+~*l::
+~*m::
+~*n::
+~*o::
+~*p::
+~*q::
+~*r::
+~*s::
+~*t::
+~*u::
+~*v::
+~*w::
+~*x::
+~*y::
+~*z::
+~*0::
+~*1::
+~*2::
+~*3::
+~*4::
+~*5::
+~*6::
+~*7::
+~*8::
+~*9::
+~*Space::
+~*Enter::
+~*Tab::
+~*Backspace::
+~*Esc::
+~*F1::
+~*F2::
+~*F3::
+~*F4::
+~*F5::
+~*F6::
+~*F7::
+~*F8::
+~*F9::
+~*F10::
+~*F11::
+~*F12::
+~*Up::
+~*Down::
+~*Left::
+~*Right::
+~*Home::
+~*End::
+~*PgUp::
+~*PgDn::
+~*Insert::
+~*Delete::
+~*PrintScreen::
+~*ScrollLock::
+~*Pause::
+~*Numpad0::
+~*Numpad1::
+~*Numpad2::
+~*Numpad3::
+~*Numpad4::
+~*Numpad5::
+~*Numpad6::
+~*Numpad7::
+~*Numpad8::
+~*Numpad9::
+~*NumpadMult::
+~*NumpadAdd::
+~*NumpadSub::
+~*NumpadDiv::
+~*NumpadEnter::
+~*NumpadDot::
+~*`::
+~*-::
+~*=::
+~*[::
+~*]::
+~*\::
+~*;::
+~*'::
+~*,::
+~*.::
+~*/::
+~*LButton up::
+~*RButton up::
+~*MButton up:: {
+    global shiftAlone := false
 }
-
-; Ctrl+Shift 切换输入法时重置为中文（不显示提示）
-; Ctrl+Shift 切换输入法时标记
-~^LShift::
-~^RShift:: {
-    global ctrlShiftActive
-    ctrlShiftActive := true
-}
-
 
 ; ============================================================
 ; 剪贴板监听
