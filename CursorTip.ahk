@@ -33,7 +33,7 @@ class Config {
         tipBottomOffset: 100,
         tipFontSize: 9,
         tipFontBold: true,
-        tipLightMode: false
+        tipLightMode: true
     }
 
     ; 每个配置项声明为独立的静态属性（带默认值）
@@ -48,7 +48,7 @@ class Config {
     static tipBottomOffset := 100
     static tipFontSize := 9
     static tipFontBold := true
-    static tipLightMode := false
+    static tipLightMode := true
 
     ; 加载配置
     static Load() {
@@ -628,11 +628,11 @@ ShowSettings(*) {
 
     ; === 外观样式 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y362", "外观样式（默认深色）")
+    g.Add("Text", "x20 y362", "外观样式")
     g.SetFont("Norm")
 
-    g.ctl_lightMode := g.Add("CheckBox", "x20 y387 w80", "浅色模式")
-    g.ctl_lightMode.Value := c.tipLightMode
+    g.ctl_lightMode := g.Add("Radio", "x20 y387 w100 +Group" . (c.tipLightMode ? " Checked" : ""), "浅色模式")
+    g.ctl_darkMode := g.Add("Radio", "x200 y387 w100" . (!c.tipLightMode ? " Checked" : ""), "深色模式")
     g.Add("Text", "x20 y417 w40", "字号:")
     g.ctl_fontSize := g.Add("Edit", "x60 y414 w40 h22 Number", c.tipFontSize)
     g.ctl_bold := g.Add("CheckBox", "x200 y417 w60", "加粗")
