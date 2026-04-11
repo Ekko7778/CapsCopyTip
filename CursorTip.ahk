@@ -455,7 +455,12 @@ ShowCapsStatus(forceRefreshIME := false) {
 ; Shift 独立按下检测：只有单独按下并释放 Shift 才触发
 ~*LShift::
 ~*RShift:: {
-    global shiftAlone := true
+    global shiftAlone
+    ; 按下 Shift 时已有其他修饰键按住 → 组合键
+    if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
+        shiftAlone := false
+    else
+        shiftAlone := true
 }
 
 ~*LShift up::
@@ -578,6 +583,12 @@ ShowCapsStatus(forceRefreshIME := false) {
 ~*,::
 ~*.::
 ~*/::
+~*LCtrl::
+~*RCtrl::
+~*LAlt::
+~*RAlt::
+~*LWin::
+~*RWin::
 ~*LButton up::
 ~*RButton up::
 ~*MButton up:: {
