@@ -12,7 +12,7 @@ Persistent
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "2.0.5"
+global VERSION := "2.0.6"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -174,7 +174,7 @@ OnScriptExit(exitReason, exitCode) {
     }
 }
 
-; 初始化 IME 追踪状态（默认中文，由 Shift/Ctrl+Space 翻转驱动）
+; 初始化 IME 追踪状态（默认中文，由 Shift 翻转驱动）
 InitTrackedIMEState() {
     global trackedIMEState
     trackedIMEState := "中"
@@ -253,8 +253,17 @@ ShowTip(text, duration := 0) {
     global tipGui, tipGuiText
     c := Config
 
-    ; 快速路径：GUI 已存在且有效，直接更新文本
+    ; 快速路径：GUI 已存在且可见，直接更新文本
     if (IsObject(tipGui) && WinExist("ahk_id " . tipGui.Hwnd) && IsObject(tipGuiText)) {
+        ; 文本完全相同则只重置定时器，避免无意义重绘
+        if (tipGuiText.Value = text) {
+            if (duration > 0) {
+                SetTimer(HideTip, 0)
+                SetTimer(HideTip, -duration)
+            }
+            return
+        }
+
         tipGuiText.Value := text
 
         ; 重新计算位置（文本长度变化时窗口需要自适应）
@@ -333,15 +342,18 @@ ShowTip(text, duration := 0) {
 }
 
 HideTip() {
-    global tipGui
-    if (IsObject(tipGui))
-        tipGui.Hide()
+    global tipGui, tipGuiText
+    if (IsObject(tipGui)) {
+        tipGui.Destroy()
+        tipGui := ""
+        tipGuiText := ""
+    }
     SetTimer(HideTip, 0)
 }
 
 ; ============================================================
 ; 输入法检测（纯翻转方案）
-; 不依赖任何 IMM32 API，仅通过 Shift/Ctrl+Space 按键追踪中/英模式
+; 不依赖任何 IMM32 API，仅通过 Shift 按键追踪中/英模式
 ; 适配所有第三方输入法（搜狗、微信等）及 UWP 应用
 ; ============================================================
 GetIMEStatus(forceRefresh := false) {
@@ -349,7 +361,7 @@ GetIMEStatus(forceRefresh := false) {
     static lastResult := "中"
     static lastCheckTime := 0
     static lastWindowHash := 0
-    static lastKLID := 0
+    static lastKLID := ""
 
     if (!forceRefresh) {
         if (A_TickCount - lastCheckTime < 150)
@@ -359,21 +371,28 @@ GetIMEStatus(forceRefresh := false) {
             return lastResult
     }
 
-    ; 键盘布局变化说明切换了输入法，重置为中文
-    try {
-        threadID := DllCall("GetWindowThreadProcessId", "Ptr", WinExist("A"), "UInt", 0)
-        hKL := DllCall("GetKeyboardLayout", "UInt", threadID, "UPtr")
-        if (lastKLID != 0 && hKL != lastKLID) {
-            trackedIMEState := "中"
-            lastCheckTime := 0  ; 清除防抖，让后续调用立即生效
-        }
-        lastKLID := hKL
-    }
+    ; 检测键盘布局是否变化（输入法切换），变化时重置为中
+    threadId := DllCall("GetWindowThreadProcessId", "Ptr", WinExist("A"), "UIntP", 0, "UInt")
+    hKL := DllCall("GetKeyboardLayout", "UInt", threadId, "Ptr")
+    currentKLID := Format("{:08x}", hKL & 0xFFFFFFFF)
+    if (lastKLID != "" && currentKLID != lastKLID)
+        trackedIMEState := "中"
+    lastKLID := currentKLID
 
     lastResult := trackedIMEState
     lastWindowHash := WinExist("A")
     lastCheckTime := A_TickCount
     return lastResult
+}
+
+; 检测当前输入法是否为微软内置输入法（通过键盘布局 ID）
+; 微软拼音/五笔等内置输入法的 KLID 为 00000804/00000404
+; 第三方输入法（搜狗、微信等）使用 E 开头的 KLID
+IsMicrosoftIME() {
+    threadId := DllCall("GetWindowThreadProcessId", "Ptr", WinExist("A"), "UIntP", 0, "UInt")
+    hKL := DllCall("GetKeyboardLayout", "UInt", threadId, "Ptr")
+    klid := Format("{:08x}", hKL & 0xFFFFFFFF)
+    return (klid = "00000804" || klid = "00000404")
 }
 
 ; ============================================================
@@ -414,13 +433,23 @@ ShowCapsStatus(forceRefreshIME := false) {
 ; Shift 独立按下检测：用时间戳判断期间是否有其他键按下
 ~*LShift::
 ~*RShift:: {
-    global shiftDownTime
+    global shiftDownTime, mouseDownDuringShift
     shiftDownTime := A_TickCount
+    mouseDownDuringShift := false
+}
+
+; 记录 Shift 按住期间是否有鼠标点击
+~*LButton::
+~*RButton::
+~*MButton:: {
+    global mouseDownDuringShift
+    if (GetKeyState("Shift", "P"))
+        mouseDownDuringShift := true
 }
 
 ~*LShift up::
 ~*RShift up:: {
-    global lastCapsChangeTime, trackedIMEState, ctrlShiftActive
+    global lastCapsChangeTime, trackedIMEState, ctrlShiftActive, mouseDownDuringShift
     if (!Config.enableCapsTip)
         return
 
@@ -435,8 +464,12 @@ ShowCapsStatus(forceRefreshIME := false) {
     if (GetKeyState("Ctrl", "P") || GetKeyState("Alt", "P") || GetKeyState("LWin", "P") || GetKeyState("RWin", "P"))
         return
 
-    ; 释放时仍有鼠标键按住 → 组合键，不触发
-    if (GetKeyState("LButton", "P") || GetKeyState("RButton", "P") || GetKeyState("MButton", "P"))
+    ; Shift 按住期间有鼠标点击 → 组合键，不触发
+    if (mouseDownDuringShift)
+        return
+
+    ; A_PriorKey 不是 Shift → 期间有其他键按下，是组合键（如 Shift+A 打大写）
+    if (A_PriorKey != "LShift" && A_PriorKey != "RShift")
         return
 
     ; 防抖
@@ -447,19 +480,10 @@ ShowCapsStatus(forceRefreshIME := false) {
 
     trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
 
-    ShowCapsStatus(true)
-}
-
-; Ctrl+Space 切换输入法时也翻转追踪状态
-~^Space:: {
-    global trackedIMEState, lastCapsChangeTime
-    if (!Config.enableCapsTip)
-        return
-    if (A_TickCount - lastCapsChangeTime < 80)
-        return
-    Sleep(30)
-    trackedIMEState := (trackedIMEState = "中") ? "英" : "中"
-    ShowCapsStatus(true)
+    ; 仅在第三方输入法 + 开启中/英显示时才弹出提示
+    ; 微软输入法无法可靠追踪其 IME 状态，不弹提示
+    if (!IsMicrosoftIME() && Config.showIMEStatus)
+        ShowCapsStatus(true)
 }
 
 ; Win+Space 切换输入法时重置为中文
@@ -476,91 +500,6 @@ ShowCapsStatus(forceRefreshIME := false) {
     ctrlShiftActive := true
 }
 
-; 任意其他键按下 → 标记 Shift 不是独立按下
-~*a::
-~*b::
-~*c::
-~*d::
-~*e::
-~*f::
-~*g::
-~*h::
-~*i::
-~*j::
-~*k::
-~*l::
-~*m::
-~*n::
-~*o::
-~*p::
-~*q::
-~*r::
-~*s::
-~*t::
-~*u::
-~*v::
-~*w::
-~*x::
-~*y::
-~*z::
-~*0::
-~*1::
-~*2::
-~*3::
-~*4::
-~*5::
-~*6::
-~*7::
-~*8::
-~*9::
-~*Space::
-~*Enter::
-~*Tab::
-~*Backspace::
-~*Esc::
-~*F1::
-~*F2::
-~*F3::
-~*F4::
-~*F5::
-~*F6::
-~*F7::
-~*F8::
-~*F9::
-~*F10::
-~*F11::
-~*F12::
-~*Up::
-~*Down::
-~*Left::
-~*Right::
-~*Home::
-~*End::
-~*PgUp::
-~*PgDn::
-~*Insert::
-~*Delete::
-~*PrintScreen::
-~*ScrollLock::
-~*Pause::
-~*Numpad0::
-~*Numpad1::
-~*Numpad2::
-~*Numpad3::
-~*Numpad4::
-~*Numpad5::
-~*Numpad6::
-~*Numpad7::
-~*Numpad8::
-~*Numpad9::
-~*NumpadMult::
-~*NumpadAdd::
-~*NumpadSub::
-~*NumpadDiv::
-~*NumpadEnter::
-~*NumpadDot::
-~*`::
-~*-::
 
 ; ============================================================
 ; 剪贴板监听

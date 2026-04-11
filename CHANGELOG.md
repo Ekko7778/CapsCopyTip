@@ -6,7 +6,12 @@ All notable changes to CursorTip will be documented in this file.
 
 > **版本规范**：采用二十进制版本号，每次发布只递增 PATCH 位（第三位），PATCH 到 19 进位到 MINOR
 
-## [2.1.0] - 2026-04-10
+## [2.0.1] - 2026-04-12
+
+### Removed
+- 🗑️ 移除 Ctrl+Space 切换输入法追踪功能，仅保留 Shift 翻转
+
+## [2.0.0] - 2026-04-10
 
 ### Changed
 - 🏷️ 项目重命名为 CursorTip
