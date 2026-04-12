@@ -733,9 +733,9 @@ ShowSettings(*) {
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
     pic := g.Add("Picture", "x20 y500 w16 h16", icoPath)
-    pic.OnEvent("Click", (*) => Run("https://github.com/zeno528/CapsCopyTip"))
+    pic.OnEvent("Click", (*) => Run("https://github.com/zeno528/CursorTip"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y502", '<a href="https://github.com/zeno528/CapsCopyTip">GitHub</a>')  ; 仓库名暂不改
+    g.Add("Link", "x40 y502", '<a href="https://github.com/zeno528/CursorTip">GitHub</a>')
     g.Add("Text", "x200 y502", "© 2026  MIT License")
 
     g.Show("w340 h530")

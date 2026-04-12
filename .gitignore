@@ -12,3 +12,6 @@ config.ini
 
 # 旧版文件
 archive/
+
+# Playwright MCP
+.playwright-mcp/

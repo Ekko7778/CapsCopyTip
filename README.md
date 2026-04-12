@@ -1,11 +1,21 @@
+<div align="center">
+
+<img src="assets/logo.png" alt="CursorTip" width="128" height="128">
+
 # CursorTip
+
+**轻量 Windows 桌面状态提示工具**
+
+在屏幕上实时显示键盘状态和剪贴板操作反馈，帮助你准确感知输入环境。
 
 [![Release](https://img.shields.io/github/v/release/zeno528/CursorTip?style=flat-square&logo=github)](https://github.com/zeno528/CursorTip/releases)
 [![License](https://img.shields.io/github/license/zeno528/CursorTip?style=flat-square)](LICENSE)
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat-square&logo=autohotkey)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat-square&logo=windows)](https://github.com/zeno528/CursorTip)
 
-一款 Windows 桌面状态提示工具，基于 AutoHotkey v2 开发。在屏幕上实时显示键盘状态和剪贴板操作反馈，帮助你准确感知输入环境。
+简体中文 | [English](README_EN.md)
+
+</div>
 
 ## 功能
 
@@ -28,7 +38,7 @@
 
 ## 安装
 
-1. 前往 [Releases](https://github.com/zeno528/CursorTip/releases) 下载最新版 `CursorTip_vX.X.X.exe`
+1. 前往 [Releases](https://github.com/zeno528/CursorTip/releases) 下载最新版 `CursorTip_vX.X.X.zip`
 2. 双击运行，无需安装 AutoHotkey
 
 ### 开机自启
@@ -48,7 +58,7 @@
 
 | 大小写 + 输入法提示 | 复制提示 | 设置界面 |
 |:-------------------:|:--------:|:--------:|
-| ![](images/preview-copy-tip.png) | ![](images/preview-caps-ime.png) | ![](images/preview-settings.png) |
+| ![](images/preview-caps-ime-light.png)![](images/preview-caps-ime-dark.png) | ![](images/preview-copy-tip-light.png)![](images/preview-copy-tip-dark.png) | ![](images/preview-settings.png) |
 
 ## 系统要求
 
