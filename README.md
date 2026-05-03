@@ -13,7 +13,7 @@
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat-square&logo=autohotkey)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat-square&logo=windows)](https://github.com/zeno528/CursorTip)
 
-简体中文 | [English](README_EN.md)
+简体中文 | [English](README_EN.md) | [🌐 官网](https://cursortip.pages.dev)
 
 </div>
 

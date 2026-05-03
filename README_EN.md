@@ -13,7 +13,7 @@ Displays real-time keyboard state and clipboard operation feedback on screen, he
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat-square&logo=autohotkey)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat-square&logo=windows)](https://github.com/zeno528/CursorTip)
 
-English | [简体中文](README.md)
+English | [简体中文](README.md) | [🌐 Website](https://cursortip.pages.dev)
 
 </div>
 
