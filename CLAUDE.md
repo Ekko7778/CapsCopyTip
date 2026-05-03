@@ -18,6 +18,10 @@ config.ini     - 用户配置（自动生成）
 
 ---
 
+## 工作规范
+
+**浏览器自动化工具清理**：使用 Playwright/Chrome DevTools 等浏览器工具截图后，必须删除生成的临时文件（`website-*.png`、`website-*.jpeg`、`.playwright-mcp/` 等），不要残留到项目目录中。
+
 ## 编译命令
 
 ```bash
