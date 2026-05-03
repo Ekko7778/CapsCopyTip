@@ -608,23 +608,30 @@ ClipChanged(dataType) {
     clipboardProcessing := true
 
     try {
+        ; 等待剪贴板可用，避免其他程序占用导致读取失败
+        Sleep(50)
+
         isFile := DllCall("IsClipboardFormatAvailable", "UInt", 15)
         isImage := DllCall("IsClipboardFormatAvailable", "UInt", 2)
               || DllCall("IsClipboardFormatAvailable", "UInt", 8)
               || DllCall("IsClipboardFormatAvailable", "UInt", 17)
 
         if (isFile) {
-            files := StrSplit(A_Clipboard, "`n", "`r")
+            clipText := A_Clipboard
+            files := StrSplit(clipText, "`n", "`r")
             count := files.Length
             if (count > 0 && files[1] != "")
                 ShowTip("已复制：" . count . " 个文件", Config.copyShowDuration)
         } else if (isImage) {
             ShowTip("已复制：图片", Config.copyShowDuration)
         } else {
-            length := StrLen(A_Clipboard)
+            clipText := A_Clipboard
+            length := StrLen(clipText)
             if (length > 0)
                 ShowTip("已复制：" . length . " 字符", Config.copyShowDuration)
         }
+    } catch {
+        ; 剪贴板被占用，静默忽略
     } finally {
         clipboardProcessing := false
     }
