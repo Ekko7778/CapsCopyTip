@@ -46,9 +46,6 @@ const i18n = {
         'changelog.v2.0.0': '项目重命名为 CursorTip，优化剪贴板去重逻辑',
         'changelog.v1.0.10': '升级为二十进制版本规范',
         'changelog.v1.0.8': '引入 DefaultConfig，设置窗口 UI 重构，内存泄漏修复',
-        'changelog.v1.0.6': '内置光标指示器，添加应用图标和显示中/英状态开关',
-        'changelog.v1.0.4': '浅色模式、顶部/底部偏移设置、光标语言标记',
-        'changelog.v1.0.0': '初始版本：大小写提示、输入法状态、复制反馈',
         'changelog.viewAll': '查看全部版本',
         'footer.releases': 'Releases',
         'footer.copy': '© 2026 CursorTip. 使用 ❤️ 和 AutoHotkey v2 构建。'
@@ -99,9 +96,6 @@ const i18n = {
         'changelog.v2.0.0': 'Renamed to CursorTip, optimized clipboard dedup logic',
         'changelog.v1.0.10': 'Upgraded to vigesimal versioning scheme',
         'changelog.v1.0.8': 'DefaultConfig, settings UI overhaul, memory leak fixes',
-        'changelog.v1.0.6': 'Built-in cursor indicator, app icon, C/EN toggle',
-        'changelog.v1.0.4': 'Light mode, top/bottom offset, cursor language marker',
-        'changelog.v1.0.0': 'Initial release: CapsLock, IME status, copy feedback',
         'changelog.viewAll': 'View All Releases',
         'footer.releases': 'Releases',
         'footer.copy': '© 2026 CursorTip. Built with ❤️ and AutoHotkey v2.'
@@ -123,6 +117,9 @@ function applyLang(lang) {
     });
 
     document.querySelector('.lang-label').textContent = lang === 'zh' ? 'EN' : '中';
+
+    // Refresh hero version badge with current language (uses cached releases)
+    updateHeroVersion();
 }
 
 function toggleLang() {
@@ -153,6 +150,161 @@ async function downloadLatest(e) {
     } catch {
         window.open('https://github.com/zeno528/CursorTip/releases/latest', '_blank');
     }
+}
+
+// ===== Dynamic Releases (from GitHub Releases API) =====
+// Single source of truth: GitHub Releases → website auto-syncs.
+// Each GitHub Release's body becomes the changelog description.
+const RELEASES_API = 'https://api.github.com/repos/zeno528/CursorTip/releases?per_page=10';
+const RELEASES_CACHE_KEY = 'cursortip-releases-v1';
+const RELEASES_CACHE_TTL = 30 * 60 * 1000; // 30 min
+
+let releasesCache = null;
+
+async function fetchReleases() {
+    // 1. In-memory cache
+    if (releasesCache) return releasesCache;
+
+    // 2. localStorage cache
+    try {
+        const stored = localStorage.getItem(RELEASES_CACHE_KEY);
+        if (stored) {
+            const { data, time } = JSON.parse(stored);
+            if (Date.now() - time < RELEASES_CACHE_TTL && Array.isArray(data)) {
+                releasesCache = data;
+                return data;
+            }
+        }
+    } catch { /* localStorage unavailable */ }
+
+    // 3. Fetch from GitHub API
+    try {
+        const res = await fetch(RELEASES_API, {
+            headers: { 'Accept': 'application/vnd.github+json' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        // Only stable releases
+        const stable = Array.isArray(data)
+            ? data.filter(r => r && !r.draft && !r.prerelease)
+            : [];
+        releasesCache = stable;
+        try {
+            localStorage.setItem(RELEASES_CACHE_KEY, JSON.stringify({
+                data: stable,
+                time: Date.now()
+            }));
+        } catch { /* quota exceeded — ignore */ }
+        return stable;
+    } catch (e) {
+        console.warn('[CursorTip] Failed to fetch releases:', e.message);
+        return releasesCache || []; // Return stale cache or empty
+    }
+}
+
+// Extract first meaningful line from a release body (markdown)
+// Strategy:
+//   1. Find all bullet points, skip very short ones (< 8 chars — usually emoji section labels like "🐞 修复问题")
+//   2. Return the first meaningful bullet
+//   3. If no bullets, fall back to the first non-heading/callout line
+function parseReleaseBody(body) {
+    if (!body) return '';
+    const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // Strip inline markdown formatting from a text snippet
+    const clean = (text) => text
+        .replace(/\*\*([^*]+)\*\*/g, '$1')   // **bold**
+        .replace(/\*([^*]+)\*/g, '$1')        // *italic*
+        .replace(/`([^`]+)`/g, '$1')          // `code`
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [text](url) → text
+        .trim();
+
+    const truncate = (s) => s.length > 100 ? s.substring(0, 100) + '…' : s;
+
+    // Pass 1: collect all bullets, then pick the first "meaningful" one
+    const bullets = [];
+    for (const line of lines) {
+        const m = line.match(/^[-*+]\s+(.+)$/) || line.match(/^\d+\.\s+(.+)$/);
+        if (m) bullets.push(clean(m[1]));
+    }
+    // Prefer bullets with >= 8 visible chars (skip emoji section labels)
+    const meaningful = bullets.find(b => b.length >= 8);
+    if (meaningful) return truncate(meaningful);
+    // Fall back to the first bullet if all are short
+    if (bullets.length > 0) return truncate(bullets[0]);
+
+    // Pass 2: no bullets — use first non-heading/callout line
+    for (const line of lines) {
+        if (line.startsWith('#')) continue;
+        if (line.startsWith('>')) continue;
+        if (/^https?:\/\//i.test(line)) continue;
+        if (/^!\[/.test(line)) continue;
+        if (/^\*\*[^*]*\*\*:?\s*$/.test(line)) continue;
+        const c = clean(line.replace(/^[-*+]\s+/, '').replace(/^\d+\.\s+/, ''));
+        if (c.length >= 6) return truncate(c);
+    }
+    return ''; // Caller will use fallback
+}
+
+function formatReleaseDate(isoDate) {
+    if (!isoDate) return '';
+    try {
+        const d = new Date(isoDate);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    } catch {
+        return '';
+    }
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Render the changelog timeline from releases
+async function renderChangelog() {
+    const releases = await fetchReleases();
+    const timeline = document.querySelector('.timeline');
+    if (!timeline || releases.length === 0) return; // Keep hardcoded fallback
+
+    const fallback = currentLang === 'zh' ? 'Bug 修复和改进' : 'Bug fixes and improvements';
+    const top5 = releases.slice(0, 5);
+    timeline.innerHTML = top5.map((rel, i) => {
+        const isLatest = i === 0;
+        const desc = parseReleaseBody(rel.body) || fallback;
+        const date = formatReleaseDate(rel.published_at);
+        const tag = escapeHtml(rel.tag_name || '');
+        const safeDesc = escapeHtml(desc);
+        return `
+            <div class="timeline-item">
+                <div class="timeline-dot${isLatest ? ' latest' : ''}"></div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="version-badge${isLatest ? ' latest' : ''}">${tag}</span>
+                        <span class="timeline-date">${date}</span>
+                    </div>
+                    <p>${safeDesc}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Update the hero eyebrow with the latest release version
+async function updateHeroVersion() {
+    const releases = await fetchReleases();
+    if (releases.length === 0) return;
+    const latest = releases[0];
+    const eyebrow = document.querySelector('.hero-eyebrow [data-i18n="hero.eyebrow"]');
+    if (!eyebrow) return;
+    const tag = latest.tag_name || '';
+    const isZh = currentLang === 'zh';
+    const status = isZh ? '已发布' : 'released';
+    eyebrow.textContent = `${tag} · ${status}`;
 }
 
 // ===== Scroll-reveal (IntersectionObserver) =====
@@ -202,4 +354,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initReveal();
     initNavScroll();
     initFeatureGlow();
+
+    // Dynamic content from GitHub Releases (non-blocking, with hardcoded fallback)
+    Promise.all([updateHeroVersion(), renderChangelog()])
+        .catch(err => console.warn('[CursorTip] Dynamic content failed:', err));
 });
