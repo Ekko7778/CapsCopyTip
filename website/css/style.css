@@ -410,12 +410,12 @@ button {
 
 .hero-logo {
     position: relative;
-    width: 140px;
-    height: 140px;
-    margin: 0 auto 48px;
+    width: 128px;
+    height: 128px;
+    margin: 0 auto 44px;
     display: grid;
     place-items: center;
-    border-radius: 30px;
+    border-radius: 26px;
     /* Faint liquid-glass tint — present but barely visible */
     background:
         linear-gradient(135deg,
@@ -481,9 +481,9 @@ button {
 }
 
 .hero-logo img {
-    width: 132px;
-    height: 132px;
-    border-radius: 26px;
+    width: 126px;
+    height: 126px;
+    border-radius: 24px;
     position: relative;
     z-index: 1;
     filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
@@ -1174,11 +1174,7 @@ button {
 .footer-copy {
     font-size: 12.5px;
     color: var(--ink-faint);
-    width: 100%;
     text-align: center;
-    margin-top: 8px;
-    padding-top: 24px;
-    border-top: 1px dashed var(--hairline);
 }
 
 /* ==========================================================================
@@ -1258,15 +1254,15 @@ button {
         padding: 132px 20px 88px;
     }
     .hero-logo {
-        width: 116px;
-        height: 116px;
-        margin-bottom: 36px;
-        border-radius: 24px;
+        width: 104px;
+        height: 104px;
+        margin-bottom: 32px;
+        border-radius: 22px;
     }
     .hero-logo img {
-        width: 108px;
-        height: 108px;
-        border-radius: 22px;
+        width: 102px;
+        height: 102px;
+        border-radius: 20px;
     }
     .hero-actions {
         flex-direction: column;
