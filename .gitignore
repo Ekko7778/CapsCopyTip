@@ -14,5 +14,8 @@ config.ini
 # 旧版文件
 archive/
 
+# Wrangler 缓存
+.wrangler/
+
 # Playwright MCP
 .playwright-mcp/
