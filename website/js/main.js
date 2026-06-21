@@ -47,7 +47,8 @@ const i18n = {
         'changelog.v1.0.8': '引入 DefaultConfig，设置窗口 UI 重构，内存泄漏修复',
         'changelog.viewAll': '查看全部版本',
         'footer.releases': 'Releases',
-        'footer.copy': '© 2026 CursorTip. 使用 ❤️ 和 AutoHotkey v2 构建。'
+        'footer.copy': '© 2026 CursorTip. 使用 AutoHotkey v2 构建',
+        'footer.cta': '❤️ 觉得不错？点个 Star'
     },
     en: {
         'nav.features': 'Features',
@@ -96,7 +97,8 @@ const i18n = {
         'changelog.v1.0.8': 'DefaultConfig, settings UI overhaul, memory leak fixes',
         'changelog.viewAll': 'View All Releases',
         'footer.releases': 'Releases',
-        'footer.copy': '© 2026 CursorTip. Built with ❤️ and AutoHotkey v2.'
+        'footer.copy': '© 2026 CursorTip. Built with AutoHotkey v2',
+        'footer.cta': '❤️ Like it? Give a Star'
     }
 };
 
