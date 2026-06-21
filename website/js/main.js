@@ -26,7 +26,6 @@ const i18n = {
         'preview.subtitle': '深色 / 浅色主题，跟随你的系统偏好',
         'preview.caps': '大小写 + 输入法提示',
         'preview.copy': '复制提示',
-        'preview.settings': '设置界面',
         'download.eyebrow': '开始使用',
         'download.title': '获取 CursorTip',
         'download.subtitle': '无需安装，下载即用',
@@ -76,7 +75,6 @@ const i18n = {
         'preview.subtitle': 'Dark / Light themes, follows your system preference',
         'preview.caps': 'CapsLock + IME Indicator',
         'preview.copy': 'Copy Feedback',
-        'preview.settings': 'Settings',
         'download.eyebrow': 'GET STARTED',
         'download.title': 'Get CursorTip',
         'download.subtitle': 'No installation needed, just download and run',
@@ -321,8 +319,23 @@ function initReveal() {
                 io.unobserve(entry.target);
             }
         });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    }, { threshold: 0.05, rootMargin: '0px 0px -8% 0px' });
     items.forEach(el => io.observe(el));
+}
+
+// ===== Preview 图片淡入（解码完成后才显形，避免位图“啪”地闪出来） =====
+function initPreviewImages() {
+    const imgs = document.querySelectorAll('.preview-images img');
+    imgs.forEach(img => {
+        const reveal = () => img.classList.add('is-loaded');
+        if (img.complete && img.naturalWidth > 0) {
+            // 已缓存命中：下一帧再加 class，让 transition 生效
+            requestAnimationFrame(reveal);
+        } else {
+            img.addEventListener('load', reveal, { once: true });
+            img.addEventListener('error', reveal, { once: true });
+        }
+    });
 }
 
 // ===== Nav scroll state =====
@@ -354,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initReveal();
     initNavScroll();
     initFeatureGlow();
+    initPreviewImages();
 
     // Dynamic content from GitHub Releases (non-blocking, with hardcoded fallback)
     Promise.all([updateHeroVersion(), renderChangelog()])

@@ -870,10 +870,6 @@ button {
     box-shadow: var(--shadow-md);
 }
 
-.preview-card-wide {
-    grid-column: 1 / -1;
-}
-
 .preview-label {
     display: flex;
     align-items: center;
@@ -902,21 +898,23 @@ button {
 .preview-images img {
     border-radius: var(--r-md);
     width: 100%;
-    transition: transform var(--t-base) var(--ease);
+    height: auto;
+    aspect-ratio: 656 / 238;
+    object-fit: cover;
+    display: block;
     border: 1px solid var(--hairline);
+    opacity: 0;
+    transition: opacity 360ms var(--ease), transform var(--t-base) var(--ease);
+    will-change: opacity, transform;
 }
 
-.preview-images img:hover {
-    transform: scale(1.02);
+/* 图片解码完成 / 已缓存命中后才淡入，避免位图“啪”地闪现 */
+.preview-images img.is-loaded {
+    opacity: 1;
 }
 
-.preview-card-wide > img {
-    max-width: 480px;
-    max-height: 600px;
-    margin: 0 auto;
-    border-radius: var(--r-md);
-    object-fit: contain;
-    border: 1px solid var(--hairline);
+.preview-card:hover .preview-images img.is-loaded {
+    transform: scale(1.015);
 }
 
 /* ==========================================================================
@@ -1182,19 +1180,22 @@ button {
    ========================================================================== */
 .reveal {
     opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 700ms var(--ease-snap), transform 700ms var(--ease-snap);
+    transform: translate3d(0, 12px, 0);
+    transition:
+        opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
 }
 
 .reveal.is-visible {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
 }
 
-.reveal-delay-1 { transition-delay: 80ms; }
-.reveal-delay-2 { transition-delay: 160ms; }
-.reveal-delay-3 { transition-delay: 240ms; }
-.reveal-delay-4 { transition-delay: 320ms; }
+.reveal-delay-1 { transition-delay: 60ms; }
+.reveal-delay-2 { transition-delay: 120ms; }
+.reveal-delay-3 { transition-delay: 180ms; }
+.reveal-delay-4 { transition-delay: 240ms; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -1215,7 +1216,7 @@ button {
     .features-grid {
         grid-template-columns: 1fr 1fr;
     }
-    .feature-card--wide {
+    .feature-card.feature-card--wide {
         grid-column: span 2;
         grid-row: auto;
     }
@@ -1284,9 +1285,11 @@ button {
 
     .features-grid {
         grid-template-columns: 1fr;
+        grid-template-rows: auto;
     }
-    .feature-card--wide {
+    .feature-card.feature-card--wide {
         grid-column: span 1;
+        grid-row: span 1;
     }
     .feature-card,
     .feature-card--wide {
@@ -1295,6 +1298,10 @@ button {
 
     .preview-images {
         grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .preview-card {
+        padding: 20px;
     }
 
     .timeline {
