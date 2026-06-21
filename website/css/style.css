@@ -76,9 +76,14 @@
 
 /* ---------- Base ---------- */
 html {
-    scroll-behavior: smooth;
+    /* 平滑滚动由 Lenis 接管；保留 scroll-padding 用于锚点 offset 兜底 */
     scroll-padding-top: 88px;
     -webkit-text-size-adjust: 100%;
+}
+
+/* Lenis 启用后允许原生 smooth 兜底用于不支持 JS 的极端场景 */
+html:not(.lenis) {
+    scroll-behavior: smooth;
 }
 
 ::selection {
@@ -1177,25 +1182,37 @@ button {
 
 /* ==========================================================================
    Scroll-reveal animations
-   ========================================================================== */
-.reveal {
+   ==========================================================================
+   - `.js-enabled` 类由 head 内联脚本同步加上，保证首次 paint 时 reveal 元素
+     就处于 opacity:0 的初始态，肉眼可见的渐入动画才能从 0 开始播放。
+   - 没 JS 的退化场景下 reveal 元素直接显示，不影响内容可读性。
+*/
+@keyframes reveal-fade-up {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 24px, 0);
+        filter: blur(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+        filter: blur(0);
+    }
+}
+
+.js-enabled .reveal {
     opacity: 0;
-    transform: translate3d(0, 12px, 0);
-    transition:
-        opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
-        transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: opacity, transform;
+    will-change: opacity, transform, filter;
 }
 
-.reveal.is-visible {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
+.js-enabled .reveal.is-visible {
+    animation: reveal-fade-up 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.reveal-delay-1 { transition-delay: 60ms; }
-.reveal-delay-2 { transition-delay: 120ms; }
-.reveal-delay-3 { transition-delay: 180ms; }
-.reveal-delay-4 { transition-delay: 240ms; }
+.js-enabled .reveal-delay-1.is-visible { animation-delay: 120ms; }
+.js-enabled .reveal-delay-2.is-visible { animation-delay: 240ms; }
+.js-enabled .reveal-delay-3.is-visible { animation-delay: 360ms; }
+.js-enabled .reveal-delay-4.is-visible { animation-delay: 480ms; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

@@ -15,7 +15,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/lenis@1.3.23/dist/lenis.css">
     <link rel="stylesheet" href="css/style.css">
+    <!-- 内联：在外部 JS 加载前就给 html 挂上 .js-ready 旗标，让 CSS 锁住 reveal 初始态 -->
+    <script>document.documentElement.classList.add('js-enabled');</script>
+    <script src="https://unpkg.com/lenis@1.3.23/dist/lenis.min.js" defer></script>
 </head>
 <body>
     <!-- Nav -->

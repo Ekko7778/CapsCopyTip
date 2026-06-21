@@ -315,7 +315,11 @@ function initReveal() {
     const io = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                entry.target.classList.add('is-visible');
+                // 下一帧再加 class：确保浏览器先 paint 过 opacity:0 起始帧，
+                // 否则首屏元素 IO 同步触发会让 keyframes 起始帧被吞掉
+                requestAnimationFrame(() => {
+                    entry.target.classList.add('is-visible');
+                });
                 io.unobserve(entry.target);
             }
         });
@@ -362,12 +366,42 @@ function initFeatureGlow() {
 }
 
 // Init
+// ===== Smooth scroll (Lenis) =====
+// 使用 RAF + lerp 接管页面滚动；遵循 prefers-reduced-motion，无障碍用户走原生滚动
+function initSmoothScroll() {
+    if (typeof Lenis === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const lenis = new Lenis({
+        autoRaf: true,            // 内置 requestAnimationFrame 循环
+        anchors: {                // 接管所有 a[href^="#"] 锚点
+            offset: -88,          // 抵消固定导航栏高度
+        },
+        lerp: 0.1,                // 平滑系数，越大越紧跟手指/滚轮
+        duration: 1.05,           // 滚动惯性时长（秒）
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        touchMultiplier: 1.4,     // 触屏惯性灵敏度
+    });
+
+    // 滚动时同步 nav 阴影状态（替换原 scroll 监听以避免双重触发）
+    const nav = document.querySelector('.nav');
+    if (nav) {
+        lenis.on('scroll', ({ scroll }) => {
+            nav.classList.toggle('scrolled', scroll > 24);
+        });
+    }
+
+    window.lenis = lenis;         // 暴露给调试和潜在外部调用
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     applyLang(currentLang);
     initReveal();
     initNavScroll();
     initFeatureGlow();
     initPreviewImages();
+    initSmoothScroll();
 
     // Dynamic content from GitHub Releases (non-blocking, with hardcoded fallback)
     Promise.all([updateHeroVersion(), renderChangelog()])
