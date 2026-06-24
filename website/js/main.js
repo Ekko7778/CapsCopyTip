@@ -35,7 +35,7 @@ const i18n = {
         'demo.caps.lowerEn': '小写｜英',
         'demo.caps.lowerCn': '小写｜中',
         'download.eyebrow': '开始使用',
-        'download.title': '获取 CursorTip',
+        'download.title': '获取',
         'download.subtitle': '无需安装，下载即用',
         'download.step1.title': '下载',
         'download.step1.desc': '从 GitHub Releases 下载最新版 ZIP 包',
@@ -45,7 +45,7 @@ const i18n = {
         'download.step3.desc': '双击 CursorTip.exe，无需安装 AutoHotkey',
         'download.btn': '下载最新版',
         'download.noInstall': '无需安装 AutoHotkey',
-        'changelog.eyebrow': '历史版本',
+        'changelog.eyebrow': '更新日志',
         'changelog.title': '更新日志',
         'changelog.subtitle': '持续迭代，越来越好',
         'changelog.v2.0.10': '优化剪贴板读取逻辑，增加等待与异常处理',
@@ -93,7 +93,7 @@ const i18n = {
         'demo.caps.lowerEn': 'caps | EN',
         'demo.caps.lowerCn': 'caps | ZH',
         'download.eyebrow': 'GET STARTED',
-        'download.title': 'Get CursorTip',
+        'download.title': 'Get',
         'download.subtitle': 'No installation needed, just download and run',
         'download.step1.title': 'Download',
         'download.step1.desc': 'Get the latest ZIP from GitHub Releases',
@@ -118,7 +118,12 @@ const i18n = {
     }
 };
 
-let currentLang = localStorage.getItem('cursortip-lang') || 'zh';
+// 检测系统语言，如果没有缓存则自动选择
+const getSystemLang = () => {
+    const lang = navigator.language || navigator.userLanguage || 'zh';
+    return lang.startsWith('zh') ? 'zh' : 'en';
+};
+let currentLang = localStorage.getItem('cursortip-lang') || getSystemLang();
 
 function applyLang(lang) {
     currentLang = lang;
@@ -404,30 +409,24 @@ function initLiveDemo() {
         const tip = demo.querySelector('.demo-tip');
         const input = demo.querySelector('.demo-input');
         if (!tip || !input) return;
-        // 优先用 .demo-mouse（鼠标指针），它是触发位置的真正锚点
-        // 提示框出现在鼠标指针的"右下角"：tip 左上 ≈ 鼠标指针中心
         const scene = demo.querySelector('.demo-scene');
         const sr = scene.getBoundingClientRect();
         const mouse = demo.querySelector('.demo-mouse');
         let mx, my;
         if (mouse) {
             const mr = mouse.getBoundingClientRect();
-            // 鼠标指针中心
             mx = mr.left + mr.width / 2;
             my = mr.top + mr.height / 2;
         } else {
-            // 兜底：用输入框右下角
             const ir = input.getBoundingClientRect();
             mx = ir.right;
             my = ir.bottom;
         }
-        // tip 起点：水平 = mouse 右侧；垂直 = 输入框下边外 + 4px
-        // （mouse 在输入框内，不能让 tip 覆盖输入框）
         const mouseEl = demo.querySelector('.demo-mouse');
         const mr = mouseEl.getBoundingClientRect();
         const ir = input.getBoundingClientRect();
-        const dx = mr.right - sr.left + 4;       // 水平：鼠标右侧 4px
-        const dy = ir.bottom - sr.top + 6;      // 垂直：输入框下方 6px
+        const dx = mr.right - sr.left + 4;
+        const dy = ir.bottom - sr.top + 6;
         tip.style.left = dx + 'px';
         tip.style.top = dy + 'px';
     };
@@ -435,16 +434,12 @@ function initLiveDemo() {
     const positionAll = () => {
         demos.forEach(positionTip);
     };
-    // 首次定位
     positionAll();
-    // 响应 resize
     window.addEventListener('resize', positionAll);
 
     const SHOW_MS = 1000;
-    const CYCLE_MS = 2500;
-    const timers = new WeakMap();
+    const CYCLE_MS = 2000;
 
-    // \u5404 demo \u7684\u72b6\u6001\u5e8f\u5217\uff08caps \u6bcf\u6b21\u5207\u6362\u5927\u5c0f\u5199\uff0c\u4f53\u73b0 CapsLock \u5207\u6362\u52a8\u6548\uff09
     const stateSeq = {
         caps: [
             { state: 'caps',  i18n: 'demo.caps.capsEn' },
@@ -486,39 +481,48 @@ function initLiveDemo() {
         setTimeout(() => { tip.hidden = true; }, 100);
     };
 
-    const runLoop = (scene) => {
-        const demoType = scene.dataset.demo;
-        const seq = stateSeq[demoType] || stateSeq.copy;
+    // 按类型分组，同步运行
+    const demoGroups = {
+        caps: [],
+        copy: []
+    };
+
+    demos.forEach(demo => {
+        const type = demo.dataset.demo;
+        if (demoGroups[type]) {
+            demoGroups[type].push(demo);
+        }
+    });
+
+    // 为每组创建同步的定时器
+    Object.keys(demoGroups).forEach(type => {
+        const group = demoGroups[type];
+        if (!group.length) return;
+
+        const seq = stateSeq[type] || stateSeq.copy;
+
+        // 如果只有一个状态，只显示一次，不循环
+        if (seq.length === 1) {
+            setTimeout(() => {
+                group.forEach(scene => trigger(scene, seq[0]));
+            }, 600);
+            return;
+        }
+
         let idx = 0;
+
         const show = () => {
             const item = seq[idx % seq.length];
-            trigger(scene, item);
+            group.forEach(scene => trigger(scene, item));
             idx++;
-            const t1 = setTimeout(() => dismiss(scene), SHOW_MS);
-            const t2 = setTimeout(show, CYCLE_MS);
-            timers.set(scene, [t1, t2]);
+            setTimeout(() => {
+                group.forEach(scene => dismiss(scene));
+            }, SHOW_MS);
+            setTimeout(show, CYCLE_MS);
         };
+
         setTimeout(show, 600);
-    };
-
-    const stopLoop = (scene) => {
-        const ts = timers.get(scene);
-        if (ts) { ts.forEach(clearTimeout); timers.delete(scene); }
-        dismiss(scene);
-    };
-
-    if ('IntersectionObserver' in window) {
-        const io = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const scene = entry.target;
-                if (entry.isIntersecting) runLoop(scene);
-                else stopLoop(scene);
-            });
-        }, { threshold: 0.3 });
-        demos.forEach(d => io.observe(d));
-    } else {
-        demos.forEach(runLoop);
-    }
+    });
 }
 function initPreviewImages() {
     const imgs = document.querySelectorAll('.preview-images img');
