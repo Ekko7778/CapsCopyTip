@@ -154,16 +154,43 @@
             <div class="preview-grid">
                 <div class="preview-card reveal">
                     <div class="preview-label" data-i18n="preview.caps">大小写 + 输入法提示</div>
-                    <div class="preview-images">
-                        <img src="images/preview-caps-ime-light.png" alt="Light" width="656" height="238" decoding="async">
-                        <img src="images/preview-caps-ime-dark.png" alt="Dark" width="656" height="238" decoding="async">
+                    <div class="preview-demo" data-demo="caps" aria-label="CapsLock + IME 提示动效演示">
+                        <div class="demo-scene">
+                            <div class="demo-input">
+                                <span class="demo-text">Hello world</span><span class="demo-caret"></span>
+                                <span class="demo-mouse" aria-hidden="true">
+                                    <svg viewBox="0 0 100 100" width="22" height="22">
+                                        <path fill="none" stroke="#1a1d24" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" d="M14 8 L14 88 L36 66 L48 92 L62 88 L50 62 L80 60 Z"/>
+                                    </svg>
+                                </span>
+                            </div>
+                            <div class="demo-tip" data-tip="caps" hidden>
+                                <svg class="demo-tip-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                                    <path fill="currentColor" d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z"/>
+                                </svg>
+                                <span class="demo-tip-text" data-i18n="demo.caps.text">小写｜中</span>
+                            </div>
+                        </div>
+                        <div class="demo-hint" data-i18n="demo.hint.caps">按下 Caps Lock</div>
                     </div>
                 </div>
                 <div class="preview-card reveal reveal-delay-1">
                     <div class="preview-label" data-i18n="preview.copy">复制提示</div>
-                    <div class="preview-images">
-                        <img src="images/preview-copy-tip-light.png" alt="Light" width="662" height="240" decoding="async">
-                        <img src="images/preview-copy-tip-dark.png" alt="Dark" width="662" height="240" decoding="async">
+                    <div class="preview-demo" data-demo="copy" aria-label="复制提示动效演示">
+                        <div class="demo-scene">
+                            <div class="demo-input">
+                                <span class="demo-text demo-text-selected">Hello world</span>
+                                <span class="demo-mouse" aria-hidden="true">
+                                    <svg viewBox="0 0 100 100" width="22" height="22">
+                                        <path fill="none" stroke="#1a1d24" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" d="M14 8 L14 88 L36 66 L48 92 L62 88 L50 62 L80 60 Z"/>
+                                    </svg>
+                                </span>
+                            </div>
+                            <div class="demo-tip" data-tip="copy" hidden>
+                                <span class="demo-tip-text" data-i18n="demo.copy.text">已复制：11 字符</span>
+                            </div>
+                        </div>
+                        <div class="demo-hint" data-i18n="demo.hint.copy">按下 Ctrl + C</div>
                     </div>
                 </div>
             </div>

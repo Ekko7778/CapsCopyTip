@@ -26,6 +26,10 @@ const i18n = {
         'preview.subtitle': '深色 / 浅色主题，跟随你的系统偏好',
         'preview.caps': '大小写 + 输入法提示',
         'preview.copy': '复制提示',
+        'demo.hint.caps': '按下 Caps Lock',
+        'demo.hint.copy': '按下 Ctrl + C',
+        'demo.caps.text': '小写｜中',
+        'demo.copy.text': '已复制：11 字符',
         'download.eyebrow': '开始使用',
         'download.title': '获取 CursorTip',
         'download.subtitle': '无需安装，下载即用',
@@ -76,6 +80,10 @@ const i18n = {
         'preview.subtitle': 'Dark / Light themes, follows your system preference',
         'preview.caps': 'CapsLock + IME Indicator',
         'preview.copy': 'Copy Feedback',
+        'demo.hint.caps': 'Press Caps Lock',
+        'demo.hint.copy': 'Press Ctrl + C',
+        'demo.caps.text': 'lowercase | CN',
+        'demo.copy.text': 'Copied: 11 chars',
         'download.eyebrow': 'GET STARTED',
         'download.title': 'Get CursorTip',
         'download.subtitle': 'No installation needed, just download and run',
@@ -330,6 +338,100 @@ function initReveal() {
 }
 
 // ===== Preview 图片淡入（解码完成后才显形，避免位图“啪”地闪出来） =====
+// ===== Live Demo: 模拟 CursorTip 提示框触发 =====
+function initLiveDemo() {
+    const demos = document.querySelectorAll('.preview-demo');
+    if (!demos.length) return;
+
+    // 把 tip 锚定到光标/选区结束位置的右下方（贴近 cursor + offset）
+    const positionTip = (demo) => {
+        const tip = demo.querySelector('.demo-tip');
+        const input = demo.querySelector('.demo-input');
+        if (!tip || !input) return;
+        // 优先用 .demo-mouse（鼠标指针），它是触发位置的真正锚点
+        // 提示框出现在鼠标指针的"右下角"：tip 左上 ≈ 鼠标指针中心
+        const scene = demo.querySelector('.demo-scene');
+        const sr = scene.getBoundingClientRect();
+        const mouse = demo.querySelector('.demo-mouse');
+        let mx, my;
+        if (mouse) {
+            const mr = mouse.getBoundingClientRect();
+            // 鼠标指针中心
+            mx = mr.left + mr.width / 2;
+            my = mr.top + mr.height / 2;
+        } else {
+            // 兜底：用输入框右下角
+            const ir = input.getBoundingClientRect();
+            mx = ir.right;
+            my = ir.bottom;
+        }
+        // tip 起点：水平 = mouse 右侧；垂直 = 输入框下边外 + 4px
+        // （mouse 在输入框内，不能让 tip 覆盖输入框）
+        const mouseEl = demo.querySelector('.demo-mouse');
+        const mr = mouseEl.getBoundingClientRect();
+        const ir = input.getBoundingClientRect();
+        const dx = mr.right - sr.left + 4;       // 水平：鼠标右侧 4px
+        const dy = ir.bottom - sr.top + 6;      // 垂直：输入框下方 6px
+        tip.style.left = dx + 'px';
+        tip.style.top = dy + 'px';
+    };
+
+    const positionAll = () => {
+        demos.forEach(positionTip);
+    };
+    // 首次定位
+    positionAll();
+    // 响应 resize
+    window.addEventListener('resize', positionAll);
+
+    const SHOW_MS = 1000;
+    const CYCLE_MS = 3500;
+    const timers = new WeakMap();
+
+    const trigger = (scene) => {
+        const tip = scene.querySelector('.demo-tip');
+        if (!tip) return;
+        tip.hidden = false;
+        void tip.offsetWidth;
+        tip.classList.add('is-visible');
+    };
+
+    const dismiss = (scene) => {
+        const tip = scene.querySelector('.demo-tip');
+        if (!tip) return;
+        tip.classList.remove('is-visible');
+        setTimeout(() => { tip.hidden = true; }, 100);
+    };
+
+    const runLoop = (scene) => {
+        const show = () => {
+            trigger(scene);
+            const t1 = setTimeout(() => dismiss(scene), SHOW_MS);
+            const t2 = setTimeout(show, CYCLE_MS);
+            timers.set(scene, [t1, t2]);
+        };
+        setTimeout(show, 600);
+    };
+
+    const stopLoop = (scene) => {
+        const ts = timers.get(scene);
+        if (ts) { ts.forEach(clearTimeout); timers.delete(scene); }
+        dismiss(scene);
+    };
+
+    if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const scene = entry.target;
+                if (entry.isIntersecting) runLoop(scene);
+                else stopLoop(scene);
+            });
+        }, { threshold: 0.3 });
+        demos.forEach(d => io.observe(d));
+    } else {
+        demos.forEach(runLoop);
+    }
+}
 function initPreviewImages() {
     const imgs = document.querySelectorAll('.preview-images img');
     imgs.forEach(img => {
@@ -403,6 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavScroll();
     initFeatureGlow();
     initPreviewImages();
+    initLiveDemo();
     initSmoothScroll();
 
     // Dynamic content from GitHub Releases (non-blocking, with hardcoded fallback)
