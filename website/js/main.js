@@ -324,22 +324,55 @@ async function updateHeroVersion() {
 }
 
 // ===== Scroll-reveal (IntersectionObserver) =====
+// 整组触发：每个 section/grid 内的 reveal 元素用同一个观察者 callback
+// 只要"任一"组内元素进入视口，整组同时显示（组内由 CSS :nth-child 控制微 stagger）
+// 解决了"每个元素单独 IO 异步触发"导致组内元素延迟 16~48ms 不齐的问题
 function initReveal() {
     const items = document.querySelectorAll('.reveal');
     if (!items.length || !('IntersectionObserver' in window)) {
         items.forEach(el => el.classList.add('is-visible'));
         return;
     }
+
+    // 按"最近 grid/row 祖先"分组（找不到就单独成组）
+    const groupOf = new WeakMap();
+    const groups = new Map(); // key: groupKey -> [els]
+    items.forEach(el => {
+        const group = el.closest('.preview-grid, .features-grid, .download-steps, .hero-actions, .hero-badges, .changelog-list, .nav-actions')
+            || el.parentElement;
+        if (!groupOf.has(group)) groupOf.set(group, group);
+        const key = groupOf.get(group);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(el);
+    });
+
+    // 给每组加 is-revealing 旗标，让 CSS 用 :nth-child 计算组内微 stagger
+    groups.forEach((els) => {
+        els.forEach((el, i) => {
+            el.style.setProperty('--reveal-stagger', String(i));
+        });
+    });
+
     const io = new IntersectionObserver((entries) => {
+        // 按 group 聚合：任一元素进入视口时整组触发
+        const groupsToReveal = new Set();
         entries.forEach(entry => {
             if (entry.isIntersecting) {
-                // 下一帧再加 class：确保浏览器先 paint 过 opacity:0 起始帧，
-                // 否则首屏元素 IO 同步触发会让 keyframes 起始帧被吞掉
-                requestAnimationFrame(() => {
-                    entry.target.classList.add('is-visible');
-                });
-                io.unobserve(entry.target);
+                const el = entry.target;
+                const group = el.closest('.preview-grid, .features-grid, .download-steps, .hero-actions, .hero-badges, .changelog-list, .nav-actions')
+                    || el.parentElement;
+                groupsToReveal.add(group);
             }
+        });
+        groupsToReveal.forEach(group => {
+            const els = groups.get(group);
+            if (!els) return;
+            // 下一帧统一加 class，保证起始 opacity:0 帧被 paint
+            requestAnimationFrame(() => {
+                els.forEach(el => el.classList.add('is-visible'));
+            });
+            // 整组都取消观察
+            els.forEach(el => io.unobserve(el));
         });
     }, { threshold: 0.05, rootMargin: '0px 0px -8% 0px' });
     items.forEach(el => io.observe(el));

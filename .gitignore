@@ -16,6 +16,9 @@ archive/
 # Wrangler 缓存
 .wrangler/
 
+# Website 调试图片
+website/*.png
+
 # Playwright MCP
 .playwright-mcp/
 .agents/skills/caps-build/SKILL.md

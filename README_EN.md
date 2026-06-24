@@ -4,12 +4,13 @@
 
 # CursorTip
 
-**A lightweight Windows desktop status indicator**
+**A lightweight Windows desktop status indicator** · [Learn more](https://cursortip.pages.dev/)
 
 Displays real-time keyboard state and clipboard operation feedback on screen, helping you stay aware of your input environment.
 
 [![Release](https://img.shields.io/github/v/release/zeno528/CursorTip?style=flat&logo=github&labelColor=1e293b&color=3b82f6)](https://github.com/zeno528/CursorTip/releases)
 [![License](https://img.shields.io/github/license/zeno528/CursorTip?style=flat&labelColor=1e293b&color=3b82f6)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-cursortip.pages.dev-8b5cf6?style=flat&logo=cloudflare-pages&labelColor=1e293b)](https://cursortip.pages.dev/)
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat&logo=autohotkey&labelColor=1e293b&color=4a5568)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat&logo=windows&labelColor=1e293b)](https://github.com/zeno528/CursorTip)
 

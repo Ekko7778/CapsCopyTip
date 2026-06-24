@@ -238,6 +238,7 @@ global shiftAlone := false
 global tipGui := ""
 global tipGuiText := ""
 global settingsGui := ""
+global settingsOpenPos := ""  ; 切语言重建时记忆窗口位置，避免销毁→重建空帧（灰线）
 global tipFixedWidth := 0  ; Caps/IME 提示固定宽度（按英文最宽文本测量，0=未测）
 global tipGuiIsFixed := false  ; 当前 tipGui 是否固定宽度模式（决定能否复用窗口避免闪烁）
 
@@ -788,7 +789,7 @@ ClipChanged(dataType) {
 ; 设置窗口
 ; ============================================================
 ShowSettings(*) {
-    global settingsGui
+    global settingsGui, settingsOpenPos
     ; 防止多开
     if (IsObject(settingsGui)) {
         try {
@@ -900,7 +901,11 @@ ShowSettings(*) {
     g.Add("Link", "x40 y532", '<a href="https://cursortip.pages.dev/">' . T("link_about") . '</a>')
     g.Add("Text", "x200 y532", "© 2026  MIT License")
 
-    g.Show("w340 h560")
+    ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
+    showOpts := "w340 h560"
+    if (settingsOpenPos != "")
+        showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
+    g.Show(showOpts)
     settingsGui := g
 }
 
@@ -913,14 +918,25 @@ OnLangChange(ctl, *) {
 
 ; 应用当前 Config.language：更新 curLang、重建托盘、重开设置窗口
 ApplyLanguage() {
-    global curLang, settingsGui
+    global curLang, settingsGui, settingsOpenPos
     curLang := (Config.language = "auto") ? DetectLang() : Config.language
     BuildTrayMenu()
     if (IsObject(settingsGui)) {
-        settingsGui.Destroy()
-        settingsGui := ""
+        oldGui := settingsGui
+        ; 记录旧窗口位置：新窗口在同位置覆盖显示后再销毁旧窗口，
+        ; 消除「销毁→重建」之间的空帧（即切语言时中间那条灰线）
+        try {
+            if (WinExist("ahk_id " . oldGui.Hwnd))
+                oldGui.GetPos(&px, &py), settingsOpenPos := [px, py]
+        } catch {
+        }
+        settingsGui := ""   ; 让 ShowSettings 的防多开逻辑放行，能创建新窗口
+        ShowSettings()      ; 新窗口在旧位置显示，完整覆盖旧窗口
+        if (IsObject(oldGui))
+            oldGui.Destroy()   ; 旧窗口已被新窗口遮挡，销毁无视觉中断
+    } else {
+        ShowSettings()
     }
-    ShowSettings()
 }
 
 SettingsClose(ctrlOrGui, *) {
