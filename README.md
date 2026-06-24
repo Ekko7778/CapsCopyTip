@@ -4,9 +4,7 @@
 
 # CursorTip
 
-**轻量 Windows 桌面状态提示工具**  
-
-🌐 **官网**: [cursortip.pages.dev](https://cursortip.pages.dev/)
+**轻量 Windows 桌面状态提示工具** · [了解更多](https://cursortip.pages.dev/)
 
 在屏幕上实时显示键盘状态和剪贴板操作反馈，帮助你准确感知输入环境。
 
@@ -19,6 +17,12 @@
 简体中文 | [English](README_EN.md)
 
 </div>
+
+## 效果展示
+
+| 大小写 + 输入法提示 | 复制提示 |
+|:-------------------:|:--------:|
+| ![](images/preview-caps-ime-light.png)![](images/preview-caps-ime-dark.png) | ![](images/preview-copy-tip-light.png)![](images/preview-copy-tip-dark.png) |
 
 ## 功能
 
@@ -48,25 +52,9 @@
 
 右键托盘图标 → 设置 → 勾选「开机启动」，或将 exe 放入启动文件夹（`Win+R` 输入 `shell:startup`）
 
-## 设置
-
-右键托盘图标打开设置窗口，支持配置：
-
-- 功能开关（大小写提示 / 输入法显示 / 复制提示）
-- 显示时长
-- 提示位置（跟随鼠标 / 屏幕中央 / 顶部 / 底部）
-- 外观样式（深色 / 浅色 / 字号 / 加粗）
-
-## 效果展示
-
-| 大小写 + 输入法提示 | 复制提示 | 设置界面 |
-|:-------------------:|:--------:|:--------:|
-| ![](images/preview-caps-ime-light.png)![](images/preview-caps-ime-dark.png) | ![](images/preview-copy-tip-light.png)![](images/preview-copy-tip-dark.png) | ![](images/preview-settings.png) |
-
 ## 系统要求
 
 - Windows 10 / 11
-- 无需安装 AutoHotkey
 
 ## 许可证
 

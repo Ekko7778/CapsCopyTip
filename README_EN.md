@@ -17,6 +17,12 @@ English | [简体中文](README.md)
 
 </div>
 
+## Screenshots
+
+| Caps Lock + IME | Copy Feedback |
+|:----------------:|:-------------:|
+| ![](images/preview-caps-ime-light.png)![](images/preview-caps-ime-dark.png) | ![](images/preview-copy-tip-light.png)![](images/preview-copy-tip-dark.png) |
+
 ## Features
 
 | Feature | Trigger | Display |
@@ -45,25 +51,9 @@ Tips appear as floating bubbles on screen and auto-dismiss after a few seconds w
 
 Right-click the tray icon → Settings → Check "Auto-start", or place the exe in the startup folder (`Win+R` → `shell:startup`)
 
-## Settings
-
-Right-click the tray icon to open the settings window:
-
-- Toggle features (Caps Lock indicator / IME display / Copy feedback)
-- Display duration
-- Tip position (Follow cursor / Screen center / Top / Bottom)
-- Appearance (Dark / Light / Font size / Bold)
-
-## Screenshots
-
-| Caps Lock + IME | Copy Feedback | Settings |
-|:----------------:|:-------------:|:--------:|
-| ![](images/preview-caps-ime-light.png)![](images/preview-caps-ime-dark.png) | ![](images/preview-copy-tip-light.png)![](images/preview-copy-tip-dark.png) | ![](images/preview-settings.png) |
-
 ## System Requirements
 
 - Windows 10 / 11
-- No need to install AutoHotkey
 
 ## License
 
