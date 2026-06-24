@@ -661,8 +661,10 @@ button {
     font-size: 12px;
     font-weight: 600;
     color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
     margin-bottom: 14px;
 }
 
@@ -683,12 +685,14 @@ button {
 }
 
 .section-subtitle {
-    color: var(--ink-subtle);
-    font-size: 17px;
-    line-height: 1.55;
-    letter-spacing: -0.005em;
-    max-width: 560px;
-    margin: 0 auto;
+    font-size: clamp(32px, 4.4vw, 48px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    margin: 0 auto 16px;
+    max-width: 1200px;
+    white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -871,6 +875,10 @@ button {
     gap: 24px;
 }
 
+.preview-grid + .preview-grid {
+    margin-top: 32px;
+}
+
 .preview-card {
     position: relative;
     background: var(--surface-1);
@@ -1011,35 +1019,80 @@ button {
 
 .demo-tip {
     position: absolute;
-    /* 贴近 demo-input 右下角（"Hello world" 末尾的下方），对齐光标位置 */
-    top: calc(50% + 22px);
-    left: calc(50% + 14px);
+    /* 位置由 JS 根据光标/选区动态算（initLiveDemo.positionTip） */
+    top: 50%;
+    left: 50%;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: #ffffff;
-    color: #1a1d24;
-    border: 1px solid #e3e6ec;
+    justify-content: center;
+    gap: 5px;
+    /* 对齐 CursorTip 源码 CursorTip.ahk ShowTip() */
+    background: #F5F5F5;
+    color: #333333;
+    /* 源码无显式 border，Windows 11 圆角窗口自带 1px 系统边框 */
+    border: 1px solid #c8c8c8;
+    /* 圆角：源码用 DWM DWMWA_WINDOW_CORNER_PREFERENCE=2，约 8px */
     border-radius: 8px;
-    padding: 6px 10px;
+    /* 边距：AHK Text 控件默认很小（约 2-3px） */
+    padding: 5px 11px;
+    /* 字体：s9 Bold + Microsoft YaHei */
     font-size: 12px;
-    font-weight: 500;
-    font-family: 'Inter', system-ui, sans-serif;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.06);
+    font-weight: 700;
+    font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+    font-style: normal;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     white-space: nowrap;
-    /* 关键：瞬时出现/消失，不加渐变（对齐 CursorTip 原版行为） */
-    /* 但 demo 容器加极短 scale 让"出现"有一点点反馈感 */
+    line-height: 1.2;
     transform-origin: top left;
     transform: scale(0.96);
     opacity: 0;
     transition: opacity 60ms linear, transform 80ms cubic-bezier(0.2, 0.8, 0.2, 1);
     will-change: opacity, transform;
 }
+/* ==========================================================================
+   深色模式演示卡片（独立卡片，复用同款 .demo-tip/.demo-scene，但走深色配色）
+   对齐 CursorTip.ahk ShowTip() 的 tipLightMode = false 分支
+   ========================================================================== */
+.preview-card[data-theme="dark"] .demo-scene {
+    background: linear-gradient(180deg, #2a2c33 0%, #1f2127 100%);
+    border-color: #1a1d24;
+}
+.preview-card[data-theme="dark"] .demo-input {
+    background: #1a1d24;
+    border-color: #0d0e12;
+    color: #fafafa;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.preview-card[data-theme="dark"] .demo-text-selected {
+    background: #2f5fb8;
+    color: #fafafa;
+}
+.preview-card[data-theme="dark"] .demo-caret {
+    background: #fafafa;
+}
+.preview-card[data-theme="dark"] .demo-mouse svg path {
+    stroke: #fafafa;
+}
+.preview-card[data-theme="dark"] .demo-tip {
+    /* 对齐源码：背景 333333 + 文字 FFFFFF + 圆角 + 系统 1px 边 */
+    background: #333333;
+    color: #ffffff;
+    border: 1px solid #4a4a4a;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.preview-card[data-theme="dark"] .demo-tip-icon {
+    color: #e0e0e0;
+}
 
 .demo-tip.is-visible {
     opacity: 1;
     transform: scale(1);
 }
+
+.demo-tip-icon-lock { display: none; }
+.demo-tip[data-state="caps"] .demo-tip-icon-unlock { display: none; }
+.demo-tip[data-state="caps"] .demo-tip-icon-lock { display: inline-block; }
 
 .demo-tip-icon {
     flex-shrink: 0;
@@ -1403,6 +1456,11 @@ button {
     }
     .download-steps {
         grid-template-columns: 1fr;
+    }
+
+    .section-subtitle {
+        white-space: normal;
+        max-width: 100%;
     }
 }
 

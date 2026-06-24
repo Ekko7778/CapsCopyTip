@@ -21,7 +21,7 @@ const i18n = {
         'features.copy.desc': '复制文本、截图或文件时，显示复制的字符数或文件数量。',
         'features.copy.demo1': '已复制：42 字符',
         'features.copy.demo2': '已复制：图片',
-        'preview.eyebrow': '效果展示',
+        'preview.eyebrow': '效果预览',
         'preview.title': '效果预览',
         'preview.subtitle': '深色 / 浅色主题，跟随你的系统偏好',
         'preview.caps': '大小写 + 输入法提示',
@@ -30,6 +30,10 @@ const i18n = {
         'demo.hint.copy': '按下 Ctrl + C',
         'demo.caps.text': '小写｜中',
         'demo.copy.text': '已复制：11 字符',
+        'demo.caps.capsEn': '大写｜英',
+        'demo.caps.capsCn': '大写｜中',
+        'demo.caps.lowerEn': '小写｜英',
+        'demo.caps.lowerCn': '小写｜中',
         'download.eyebrow': '开始使用',
         'download.title': '获取 CursorTip',
         'download.subtitle': '无需安装，下载即用',
@@ -41,7 +45,7 @@ const i18n = {
         'download.step3.desc': '双击 CursorTip.exe，无需安装 AutoHotkey',
         'download.btn': '下载最新版',
         'download.noInstall': '无需安装 AutoHotkey',
-        'changelog.eyebrow': '更新日志',
+        'changelog.eyebrow': '历史版本',
         'changelog.title': '更新日志',
         'changelog.subtitle': '持续迭代，越来越好',
         'changelog.v2.0.10': '优化剪贴板读取逻辑，增加等待与异常处理',
@@ -83,7 +87,11 @@ const i18n = {
         'demo.hint.caps': 'Press Caps Lock',
         'demo.hint.copy': 'Press Ctrl + C',
         'demo.caps.text': 'lowercase | CN',
-        'demo.copy.text': 'Copied: 11 chars',
+        'demo.copy.text': 'Copied: 11 char(s)',
+        'demo.caps.capsEn': 'CAPS | EN',
+        'demo.caps.capsCn': 'CAPS | ZH',
+        'demo.caps.lowerEn': 'caps | EN',
+        'demo.caps.lowerCn': 'caps | ZH',
         'download.eyebrow': 'GET STARTED',
         'download.title': 'Get CursorTip',
         'download.subtitle': 'No installation needed, just download and run',
@@ -385,12 +393,39 @@ function initLiveDemo() {
     window.addEventListener('resize', positionAll);
 
     const SHOW_MS = 1000;
-    const CYCLE_MS = 3500;
+    const CYCLE_MS = 2500;
     const timers = new WeakMap();
 
-    const trigger = (scene) => {
+    // \u5404 demo \u7684\u72b6\u6001\u5e8f\u5217\uff08caps \u6bcf\u6b21\u5207\u6362\u5927\u5c0f\u5199\uff0c\u4f53\u73b0 CapsLock \u5207\u6362\u52a8\u6548\uff09
+    const stateSeq = {
+        caps: [
+            { state: 'caps',  i18n: 'demo.caps.capsEn' },
+            { state: 'caps',  i18n: 'demo.caps.capsCn' },
+            { state: 'lower', i18n: 'demo.caps.lowerEn' },
+            { state: 'lower', i18n: 'demo.caps.lowerCn' }
+        ],
+        copy: [
+            { state: null, i18n: 'demo.copy.text' }
+        ]
+    };
+
+    const setState = (tip, item) => {
+        if (item.state) {
+            tip.setAttribute('data-state', item.state);
+        } else {
+            tip.removeAttribute('data-state');
+        }
+        const textEl = tip.querySelector('.demo-tip-text');
+        if (textEl && item.i18n) {
+            const dict = (typeof i18n !== 'undefined' && i18n[currentLang]) ? i18n[currentLang] : null;
+            textEl.textContent = (dict && dict[item.i18n]) ? dict[item.i18n] : item.i18n;
+        }
+    };
+
+    const trigger = (scene, item) => {
         const tip = scene.querySelector('.demo-tip');
         if (!tip) return;
+        if (item) setState(tip, item);
         tip.hidden = false;
         void tip.offsetWidth;
         tip.classList.add('is-visible');
@@ -404,8 +439,13 @@ function initLiveDemo() {
     };
 
     const runLoop = (scene) => {
+        const demoType = scene.dataset.demo;
+        const seq = stateSeq[demoType] || stateSeq.copy;
+        let idx = 0;
         const show = () => {
-            trigger(scene);
+            const item = seq[idx % seq.length];
+            trigger(scene, item);
+            idx++;
             const t1 = setTimeout(() => dismiss(scene), SHOW_MS);
             const t2 = setTimeout(show, CYCLE_MS);
             timers.set(scene, [t1, t2]);
