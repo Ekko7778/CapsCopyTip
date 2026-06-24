@@ -235,7 +235,7 @@ button {
     border-radius: 0;
     border-color: transparent;
     max-width: 100%;
-    background: rgba(8, 8, 11, 0.5);
+    background: rgba(8, 8, 11, 0.75);
 }
 
 .nav-logo {
@@ -264,11 +264,15 @@ button {
 
 .nav-links a {
     color: var(--ink-subtle);
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 500;
     padding: 6px 12px;
     border-radius: var(--r-md);
     transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
 }
 
 .nav-links a:hover {
@@ -1475,6 +1479,21 @@ button {
 }
 
 @media (max-width: 720px) {
+
+    /* 移动端调整提示窗口位置 */
+    .demo-tip {
+        transform: scale(0.9);
+        transform-origin: top left;
+    }
+    
+    /* 调整提示窗口在移动端的位置 */
+    .preview-demo {
+        overflow: visible;
+    }
+    
+    .demo-scene {
+        overflow: visible;
+    }
     html {
         scroll-padding-top: 72px;
     }
@@ -1560,6 +1579,7 @@ button {
     }
     .preview-card {
         padding: 20px;
+        overflow: visible;
     }
 
     .timeline {

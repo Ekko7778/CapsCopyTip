@@ -24,3 +24,6 @@ website/*.png
 .agents/skills/caps-build/SKILL.md
 AGENTS.md
 _diff.txt
+
+# 动画参数文档
+website/ANIMATIONS.md
