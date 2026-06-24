@@ -18,3 +18,5 @@ archive/
 
 # Playwright MCP
 .playwright-mcp/
+.agents/skills/caps-build/SKILL.md
+AGENTS.md
