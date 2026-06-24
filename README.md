@@ -22,7 +22,7 @@
 
 | 大小写 + 输入法提示 | 复制提示 |
 |:-------------------:|:--------:|
-| ![](images/preview-caps-ime-light.png)![](images/preview-caps-ime-dark.png) | ![](images/preview-copy-tip-light.png)![](images/preview-copy-tip-dark.png) |
+| ![](images/preview-caps-ime-light.cn.png)![](images/preview-caps-ime-dark.cn.png) | ![](images/preview-copy-tip-light.cn.png)![](images/preview-copy-tip-dark.cn.png) |
 
 ## 功能
 

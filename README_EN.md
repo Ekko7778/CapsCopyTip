@@ -28,9 +28,9 @@ English | [简体中文](README.md)
 
 | Feature | Trigger | Display |
 |:--------|:--------|:--------|
-| Caps Lock state | CapsLock toggle / Shift release | 🔒 Caps / 🔓 Lower |
-| IME state | Shown with caps lock indicator | CN / EN |
-| Copy feedback | Clipboard content changes | Copied: N chars / Image / N files |
+| Caps Lock state | CapsLock toggle / Shift release | 🔒 CAPS / 🔓 caps |
+| IME state | Shown with caps lock indicator | ZH / EN |
+| Copy feedback | Clipboard content changes | Copied: N char(s) / image / N file(s) |
 
 Tips appear as floating bubbles on screen and auto-dismiss after a few seconds without interrupting your workflow.
 
@@ -50,7 +50,7 @@ Tips appear as floating bubbles on screen and auto-dismiss after a few seconds w
 
 ### Auto-start on Boot
 
-Right-click the tray icon → Settings → Check "Auto-start", or place the exe in the startup folder (`Win+R` → `shell:startup`)
+Right-click the tray icon → Settings → Check "🚀 Run at startup", or place the exe in the startup folder (`Win+R` → `shell:startup`)
 
 ## System Requirements
 
