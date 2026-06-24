@@ -353,6 +353,10 @@ function initReveal() {
         });
     });
 
+    // 记录已触发的组，用于实现组间延迟
+    const revealedGroups = new Set();
+    const GROUP_DELAY = 120; // 组间延迟 120ms
+
     const io = new IntersectionObserver((entries) => {
         // 按 group 聚合：任一元素进入视口时整组触发
         const groupsToReveal = new Set();
@@ -364,15 +368,26 @@ function initReveal() {
                 groupsToReveal.add(group);
             }
         });
+
+        // 按顺序触发组，组间添加延迟
+        let delay = 0;
         groupsToReveal.forEach(group => {
+            if (revealedGroups.has(group)) return;
+            revealedGroups.add(group);
+
             const els = groups.get(group);
             if (!els) return;
-            // 下一帧统一加 class，保证起始 opacity:0 帧被 paint
-            requestAnimationFrame(() => {
-                els.forEach(el => el.classList.add('is-visible'));
-            });
-            // 整组都取消观察
-            els.forEach(el => io.unobserve(el));
+
+            // 组内元素同时出现
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    els.forEach(el => el.classList.add('is-visible'));
+                });
+                // 整组都取消观察
+                els.forEach(el => io.unobserve(el));
+            }, delay);
+
+            delay += GROUP_DELAY; // 组间延迟
         });
     }, { threshold: 0.05, rootMargin: '0px 0px -8% 0px' });
     items.forEach(el => io.observe(el));
