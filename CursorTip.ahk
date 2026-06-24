@@ -176,7 +176,7 @@ global L := Map(
         "set_features", "Features",
         "set_startup", "🚀 Run at startup",
         "set_caps", "🔠 CapsLock tip",
-        "set_ime", "🌐 Show IME status",
+        "set_ime", "🌐 Show IME",
         "set_copy", "📋 Copy tip",
         "set_duration", "Duration",
         "set_caps_label", "CapsLock tip:",
@@ -789,7 +789,7 @@ ShowSettings(*) {
     g.Add("Text", "x20 y10", T("set_features"))
     g.SetFont("Norm")
 
-    g.ctl_startup := g.Add("CheckBox", "x20 y32 w120", T("set_startup"))
+    g.ctl_startup := g.Add("CheckBox", "x20 y32 w150", T("set_startup"))
     g.ctl_startup.Value := IsStartupEnabled()
 
     g.ctl_caps := g.Add("CheckBox", "x20 y57 w130", T("set_caps"))
@@ -825,20 +825,23 @@ ShowSettings(*) {
     g.Add("Text", "x20 y214", T("set_position"))
     g.SetFont("Norm")
 
-    g.ctl_pos1 := g.Add("Radio", "x20 y239 w100 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
-    g.ctl_pos2 := g.Add("Radio", "x20 y266 w280" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
-    g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
-    g.ctl_pos4 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
+    ; Radio 显示顺序: 跟随鼠标 / 屏幕顶部 / 屏幕底部 / 屏幕中央（中央用得少，放最后）
+    ; tipPosition 值的含义保持不变（1=鼠标, 2=中央, 3=顶部, 4=底部），仅 Radio 显示顺序与控件->值映射调整
+    g.ctl_pos1 := g.Add("Radio", "x20 y239 w120 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
+    g.ctl_pos2 := g.Add("Radio", "x20 y266 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
+    g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
+    g.ctl_pos4 := g.Add("Radio", "x20 y320 w140" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
     ; 偏移量输入框放在所有 Radio 之后，避免打断分组
-    g.Add("Text", "x200 y242", T("set_offset"))
-    g.ctl_mouseOffset := g.Add("Edit", "x240 y239 w40 h22 Number", c.tipMouseOffset)
-    g.Add("Text", "x283 y242", "px")
-    g.Add("Text", "x200 y296", T("set_offset"))
-    g.ctl_topOffset := g.Add("Edit", "x240 y293 w40 h22 Number", c.tipTopOffset)
-    g.Add("Text", "x283 y296", "px")
-    g.Add("Text", "x200 y323", T("set_offset"))
-    g.ctl_bottomOffset := g.Add("Edit", "x240 y320 w40 h22 Number", c.tipBottomOffset)
-    g.Add("Text", "x283 y323", "px")
+    ; 标签用 w50 Right 右对齐，文字在 x200-250 内，避免与 x255 的 Edit 重叠（中文"偏移:"/英文"Offset:" 都能放下）
+    g.Add("Text", "x200 y242 w50 Right", T("set_offset"))
+    g.ctl_mouseOffset := g.Add("Edit", "x255 y239 w40 h22 Number", c.tipMouseOffset)
+    g.Add("Text", "x300 y242", "px")
+    g.Add("Text", "x200 y269 w50 Right", T("set_offset"))
+    g.ctl_topOffset := g.Add("Edit", "x255 y266 w40 h22 Number", c.tipTopOffset)
+    g.Add("Text", "x300 y269", "px")
+    g.Add("Text", "x200 y296 w50 Right", T("set_offset"))
+    g.ctl_bottomOffset := g.Add("Edit", "x255 y293 w40 h22 Number", c.tipBottomOffset)
+    g.Add("Text", "x300 y296", "px")
 
     g.Add("Text", "x10 y350 w320 h1 BackgroundDDDDDD")
 
@@ -849,13 +852,13 @@ ShowSettings(*) {
 
     g.ctl_lightMode := g.Add("Radio", "x20 y387 w100 +Group" . (c.tipLightMode ? " Checked" : ""), T("app_light"))
     g.ctl_darkMode := g.Add("Radio", "x200 y387 w100" . (!c.tipLightMode ? " Checked" : ""), T("app_dark"))
-    g.Add("Text", "x20 y417 w40", T("set_fontsize"))
-    g.ctl_fontSize := g.Add("Edit", "x60 y414 w40 h22 Number", c.tipFontSize)
+    g.Add("Text", "x20 y417 w70", T("set_fontsize"))
+    g.ctl_fontSize := g.Add("Edit", "x95 y414 w40 h22 Number", c.tipFontSize)
     g.ctl_bold := g.Add("CheckBox", "x200 y417 w60", T("set_bold"))
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 语言 ===
-    g.Add("Text", "x20 y447 w60", T("set_language"))
+    g.Add("Text", "x20 y447 w80", T("set_language"))
     langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
     g.ctl_lang := g.Add("DDL", "x200 y444 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
     g.ctl_lang.OnEvent("Change", OnLangChange)
@@ -920,10 +923,11 @@ SettingsReset(ctrl, *) {
     g.ctl_capsDur.Value := d.capsShowDuration
     g.ctl_copyDur.Value := d.copyShowDuration
 
+    ; Radio 显示顺序: 鼠标 / 顶部 / 底部 / 中央，对应 tipPosition 值: 1 / 3 / 4 / 2
     g.ctl_pos1.Value := (d.tipPosition = 1)
-    g.ctl_pos2.Value := (d.tipPosition = 2)
-    g.ctl_pos3.Value := (d.tipPosition = 3)
-    g.ctl_pos4.Value := (d.tipPosition = 4)
+    g.ctl_pos2.Value := (d.tipPosition = 3)
+    g.ctl_pos3.Value := (d.tipPosition = 4)
+    g.ctl_pos4.Value := (d.tipPosition = 2)
     g.ctl_mouseOffset.Value := d.tipMouseOffset
     g.ctl_topOffset.Value := d.tipTopOffset
     g.ctl_bottomOffset.Value := d.tipBottomOffset
@@ -949,14 +953,15 @@ SettingsSave(ctrl, *) {
     c.capsShowDuration := Max(100, Integer(g.ctl_capsDur.Value || 800))
     c.copyShowDuration := Max(100, Integer(g.ctl_copyDur.Value || 800))
 
+    ; Radio 显示顺序: 鼠标 / 顶部 / 底部 / 中央，对应 tipPosition 值: 1 / 3 / 4 / 2
     if (g.ctl_pos1.Value)
         c.tipPosition := 1
     else if (g.ctl_pos2.Value)
-        c.tipPosition := 2
-    else if (g.ctl_pos3.Value)
         c.tipPosition := 3
-    else if (g.ctl_pos4.Value)
+    else if (g.ctl_pos3.Value)
         c.tipPosition := 4
+    else if (g.ctl_pos4.Value)
+        c.tipPosition := 2
     else
         c.tipPosition := 1
 
