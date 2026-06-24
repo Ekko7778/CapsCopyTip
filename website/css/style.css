@@ -81,6 +81,16 @@ html {
     -webkit-text-size-adjust: 100%;
 }
 
+/* Lenis 接管滚动时要求布局释放（避免原生滚动 + Lenis 仿真滚动双轨造成心动），与 lenis.css 官方一致 */
+html.lenis,
+html.lenis body {
+    height: auto;
+}
+
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+    overflow: clip;
+}
+
 /* Lenis 启用后允许原生 smooth 兜底用于不支持 JS 的极端场景 */
 html:not(.lenis) {
     scroll-behavior: smooth;
@@ -118,8 +128,6 @@ body {
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-feature-settings: "ss01", "cv11", "cv02";
-    overflow-x: hidden;
-    min-height: 100vh;
 }
 
 /* Subtle global noise / aurora backdrop */
