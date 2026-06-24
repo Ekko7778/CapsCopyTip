@@ -7,8 +7,7 @@ CLAUDE.md
 .claude/
 
 # 编译产物
-*.exe
-*.zip
+dist/
 config.ini
 
 # 旧版文件

@@ -157,12 +157,12 @@ async function downloadLatest(e) {
 // Each GitHub Release's body becomes the changelog description.
 const RELEASES_API = 'https://api.github.com/repos/zeno528/CursorTip/releases?per_page=10';
 const RELEASES_CACHE_KEY = 'cursortip-releases-v1';
-const RELEASES_CACHE_TTL = 30 * 60 * 1000; // 30 min
+const RELEASES_CACHE_TTL = 15 * 60 * 1000; // 15 min
 
 let releasesCache = null;
 
 async function fetchReleases() {
-    // 1. In-memory cache
+    // 1. In-memory cache (survives within page lifetime; refresh clears it)
     if (releasesCache) return releasesCache;
 
     // 2. localStorage cache

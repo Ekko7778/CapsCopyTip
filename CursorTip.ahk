@@ -15,7 +15,7 @@ A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "2.0.12"
+global VERSION := "1.0.0"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -176,7 +176,7 @@ global L := Map(
         "set_features", "Features",
         "set_startup", "🚀 Run at startup",
         "set_caps", "🔠 CapsLock tip",
-        "set_ime", "🌐 IME status",
+        "set_ime", "🌐 Show IME status",
         "set_copy", "📋 Copy tip",
         "set_duration", "Duration",
         "set_caps_label", "CapsLock tip:",
@@ -190,7 +190,7 @@ global L := Map(
         "set_appearance", "Appearance",
         "app_light", "Light",
         "app_dark", "Dark",
-        "set_fontsize", "Size:",
+        "set_fontsize", "Font size:",
         "set_bold", "Bold",
         "set_language", "Language",
         "lang_auto", "Auto",
@@ -789,10 +789,10 @@ ShowSettings(*) {
     g.Add("Text", "x20 y10", T("set_features"))
     g.SetFont("Norm")
 
-    g.ctl_startup := g.Add("CheckBox", "x20 y32 w170", T("set_startup"))
+    g.ctl_startup := g.Add("CheckBox", "x20 y32 w120", T("set_startup"))
     g.ctl_startup.Value := IsStartupEnabled()
 
-    g.ctl_caps := g.Add("CheckBox", "x20 y57 w170", T("set_caps"))
+    g.ctl_caps := g.Add("CheckBox", "x20 y57 w130", T("set_caps"))
     g.ctl_caps.Value := c.enableCapsTip
     g.ctl_ime := g.Add("CheckBox", "x200 y57 w140", T("set_ime"))
     g.ctl_ime.Value := c.showIMEStatus
@@ -811,7 +811,7 @@ ShowSettings(*) {
     g.Add("Text", "x20 y122", T("set_duration"))
     g.SetFont("Norm")
 
-    g.Add("Text", "x20 y147 w140", T("set_caps_label"))
+    g.Add("Text", "x20 y147 w110", T("set_caps_label"))
     g.ctl_capsDur := g.Add("Edit", "x200 y144 w60 h22 Number", c.capsShowDuration)
     g.Add("Text", "x265 y147", "ms")
     g.Add("Text", "x20 y177 w110", T("set_copy_label"))
@@ -825,7 +825,7 @@ ShowSettings(*) {
     g.Add("Text", "x20 y214", T("set_position"))
     g.SetFont("Norm")
 
-    g.ctl_pos1 := g.Add("Radio", "x20 y239 w140 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
+    g.ctl_pos1 := g.Add("Radio", "x20 y239 w100 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
     g.ctl_pos2 := g.Add("Radio", "x20 y266 w280" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
     g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
     g.ctl_pos4 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
@@ -855,7 +855,7 @@ ShowSettings(*) {
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 语言 ===
-    g.Add("Text", "x20 y447 w80", T("set_language"))
+    g.Add("Text", "x20 y447 w60", T("set_language"))
     langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
     g.ctl_lang := g.Add("DDL", "x200 y444 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
     g.ctl_lang.OnEvent("Change", OnLangChange)
