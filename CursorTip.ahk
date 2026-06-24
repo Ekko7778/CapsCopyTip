@@ -10,12 +10,12 @@
 
 #SingleInstance Force
 Persistent
-A_MaxHotkeysInterval := 0  ; 禁用热键频率限制
+A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修饰键会因 auto-repeat 触发，如微信语音输入按住说话）
 
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "2.0.11"
+global VERSION := "2.0.12"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -36,7 +36,8 @@ class Config {
         tipBottomOffset: 100,
         tipFontSize: 9,
         tipFontBold: true,
-        tipLightMode: true
+        tipLightMode: true,
+        language: "auto"
     }
 
     ; 每个配置项声明为独立的静态属性（带默认值）
@@ -52,6 +53,7 @@ class Config {
     static tipFontSize := 9
     static tipFontBold := true
     static tipLightMode := true
+    static language := "auto"
 
     ; 加载配置
     static Load() {
@@ -75,6 +77,7 @@ class Config {
             c.tipFontSize := Integer(IniRead(Config.Path, "Settings", "TipFontSize", 9))
             c.tipFontBold := IniRead(Config.Path, "Settings", "TipFontBold", 1) = 1
             c.tipLightMode := IniRead(Config.Path, "Settings", "TipLightMode", 0) = 1
+            c.language := IniRead(Config.Path, "Settings", "Language", "auto")
         } catch {
             ; 读取失败，使用默认值
         }
@@ -99,8 +102,9 @@ class Config {
             IniWrite(c.tipFontSize, Config.Path, "Settings", "TipFontSize")
             IniWrite(c.tipFontBold ? 1 : 0, Config.Path, "Settings", "TipFontBold")
             IniWrite(c.tipLightMode ? 1 : 0, Config.Path, "Settings", "TipLightMode")
+            IniWrite(c.language, Config.Path, "Settings", "Language")
         } catch as e {
-            MsgBox("保存配置失败：" . e.Message, "错误", 16)
+            MsgBox(T("err_save_config") . e.Message, T("err_title"), 16)
         }
     }
 
@@ -109,6 +113,119 @@ class Config {
         for k, v in Config.Defaults.OwnProps()
             Config.%k% := v
     }
+}
+
+; ============================================================
+; 多语言（i18n）— 字符串表 + 取值
+; ============================================================
+global L := Map(
+    "zh", Map(
+        "tray_settings", "⚙ 设置",
+        "tray_reload", "🔄 重启",
+        "tray_exit", "❌ 退出",
+        "caps_on", "🔒 大写",
+        "caps_off", "🔓 小写",
+        "ime_zh", "中",
+        "ime_en", "英",
+        "copy_files", "已复制：{n} 个文件",
+        "copy_image", "已复制：图片",
+        "copy_chars", "已复制：{n} 字符",
+        "set_features", "功能开关",
+        "set_startup", "🚀 开机启动",
+        "set_caps", "🔠 大小写提示",
+        "set_ime", "🌐 显示中/英状态",
+        "set_copy", "📋 复制提示",
+        "set_duration", "显示时长",
+        "set_caps_label", "大小写提示:",
+        "set_copy_label", "复制提示:",
+        "set_position", "提示位置",
+        "pos_mouse", "跟随鼠标",
+        "pos_center", "屏幕中央",
+        "pos_top", "屏幕顶部",
+        "pos_bottom", "屏幕底部",
+        "set_offset", "偏移:",
+        "set_appearance", "外观样式",
+        "app_light", "浅色模式",
+        "app_dark", "深色模式",
+        "set_fontsize", "字号:",
+        "set_bold", "加粗",
+        "set_language", "语言",
+        "lang_auto", "自动",
+        "lang_zh", "中文",
+        "lang_en", "English",
+        "btn_reset", "恢复默认",
+        "btn_save", "保存",
+        "btn_cancel", "取消",
+        "msg_saved", "设置已保存",
+        "err_save_config", "保存配置失败：",
+        "err_set_startup", "设置开机启动失败：",
+        "link_about", "关于",
+        "err_title", "错误"
+    ),
+    "en", Map(
+        "tray_settings", "⚙ Settings",
+        "tray_reload", "🔄 Reload",
+        "tray_exit", "❌ Exit",
+        "caps_on", "🔒 CAPS",
+        "caps_off", "🔓 caps",
+        "ime_zh", "ZH",
+        "ime_en", "EN",
+        "copy_files", "Copied: {n} file(s)",
+        "copy_image", "Copied: image",
+        "copy_chars", "Copied: {n} char(s)",
+        "set_features", "Features",
+        "set_startup", "🚀 Run at startup",
+        "set_caps", "🔠 CapsLock tip",
+        "set_ime", "🌐 IME status",
+        "set_copy", "📋 Copy tip",
+        "set_duration", "Duration",
+        "set_caps_label", "CapsLock tip:",
+        "set_copy_label", "Copy tip:",
+        "set_position", "Position",
+        "pos_mouse", "Follow mouse",
+        "pos_center", "Screen center",
+        "pos_top", "Top",
+        "pos_bottom", "Bottom",
+        "set_offset", "Offset:",
+        "set_appearance", "Appearance",
+        "app_light", "Light",
+        "app_dark", "Dark",
+        "set_fontsize", "Size:",
+        "set_bold", "Bold",
+        "set_language", "Language",
+        "lang_auto", "Auto",
+        "lang_zh", "中文",
+        "lang_en", "English",
+        "btn_reset", "Reset",
+        "btn_save", "Save",
+        "btn_cancel", "Cancel",
+        "msg_saved", "Settings saved",
+        "err_save_config", "Failed to save config: ",
+        "err_set_startup", "Failed to set startup: ",
+        "link_about", "About",
+        "err_title", "Error"
+    )
+)
+
+global curLang := "zh"  ; 启动时按 Config.language 重算
+
+; 取字符串：T("key") 或 T("key", n)（{n} 占位符替换）；key 缺失返回 [key] 占位，不崩
+T(key, n := "") {
+    global L, curLang
+    if !L.Has(curLang) || !L[curLang].Has(key)
+        return "[" . key . "]"
+    s := L[curLang][key]
+    if (n != "")
+        s := StrReplace(s, "{n}", n)
+    return s
+}
+
+; 按 A_Language（4 位 LCID）主语言码判断：04=中文，其余默认英文
+DetectLang() {
+    pri := SubStr(A_Language, 3, 2)
+    if (pri = "04")
+        return "zh"
+    return "en"
 }
 
 ; ============================================================
@@ -127,11 +244,14 @@ global settingsGui := ""
 ; ============================================================
 A_TrayTip := "CursorTip v" . VERSION
 
-A_TrayMenu.Delete()
-A_TrayMenu.Add("⚙ 设置", ShowSettings)
-A_TrayMenu.Add()
-A_TrayMenu.Add("🔄 重启", (*) => Reload())
-A_TrayMenu.Add("❌ 退出", (*) => ExitApp())
+; 构建托盘菜单（语言切换后重复调用以刷新文字）
+BuildTrayMenu() {
+    A_TrayMenu.Delete()
+    A_TrayMenu.Add(T("tray_settings"), ShowSettings)
+    A_TrayMenu.Add()
+    A_TrayMenu.Add(T("tray_reload"), (*) => Reload())
+    A_TrayMenu.Add(T("tray_exit"), (*) => ExitApp())
+}
 
 ; 单击托盘图标打开设置
 OnMessage(0x404, TrayClickHandler)
@@ -150,6 +270,8 @@ OnExit(OnScriptExit)
 ; 启动
 ; ============================================================
 Config.Load()
+curLang := (Config.language = "auto") ? DetectLang() : Config.language
+BuildTrayMenu()
 InitMonitors()
 
 return ; 自动执行段结束
@@ -228,7 +350,7 @@ SetStartup(enable) {
         try {
             RegWrite(exePath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CursorTip")
         } catch as e {
-            MsgBox("设置开机启动失败：" . e.Message, "错误", 16)
+            MsgBox(T("err_set_startup") . e.Message, T("err_title"), 16)
         }
     } else {
         try {
@@ -439,13 +561,14 @@ ShowCapsStatus(forceRefreshIME := false) {
         return
 
     caps := GetKeyState("CapsLock", "T")
-    capsIcon := caps ? "🔒 大写" : "🔓 小写"
+    capsIcon := caps ? T("caps_on") : T("caps_off")
 
     if (Config.showIMEStatus) {
         ime := GetIMEStatus(forceRefreshIME)
         if (ime = "")
-            ime := "中"  ; 检测失败时默认中文
-        tip := capsIcon . " | " . ime
+            ime := "中"  ; 检测失败时默认中文（内部常量，不译）
+        imeDisplay := (ime = "中") ? T("ime_zh") : T("ime_en")
+        tip := capsIcon . " | " . imeDisplay
     } else {
         tip := capsIcon
     }
@@ -624,14 +747,14 @@ ClipChanged(dataType) {
             files := StrSplit(clipText, "`n", "`r")
             count := files.Length
             if (count > 0 && files[1] != "")
-                ShowTip("已复制：" . count . " 个文件", Config.copyShowDuration)
+                ShowTip(T("copy_files", count), Config.copyShowDuration)
         } else if (isImage) {
-            ShowTip("已复制：图片", Config.copyShowDuration)
+            ShowTip(T("copy_image"), Config.copyShowDuration)
         } else {
             clipText := A_Clipboard
             length := StrLen(clipText)
             if (length > 0)
-                ShowTip("已复制：" . length . " 字符", Config.copyShowDuration)
+                ShowTip(T("copy_chars", length), Config.copyShowDuration)
         }
     } catch {
         ; 剪贴板被占用，静默忽略
@@ -663,19 +786,19 @@ ShowSettings(*) {
 
     ; === 功能开关 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y10", "功能开关")
+    g.Add("Text", "x20 y10", T("set_features"))
     g.SetFont("Norm")
 
-    g.ctl_startup := g.Add("CheckBox", "x20 y32 w120", "🚀 开机启动")
+    g.ctl_startup := g.Add("CheckBox", "x20 y32 w170", T("set_startup"))
     g.ctl_startup.Value := IsStartupEnabled()
 
-    g.ctl_caps := g.Add("CheckBox", "x20 y57 w130", "🔠 大小写提示")
+    g.ctl_caps := g.Add("CheckBox", "x20 y57 w170", T("set_caps"))
     g.ctl_caps.Value := c.enableCapsTip
-    g.ctl_ime := g.Add("CheckBox", "x200 y57 w140", "🌐 显示中/英状态")
+    g.ctl_ime := g.Add("CheckBox", "x200 y57 w140", T("set_ime"))
     g.ctl_ime.Value := c.showIMEStatus
     g.ctl_ime.Enabled := c.enableCapsTip
 
-    g.ctl_copy := g.Add("CheckBox", "x20 y82 w130", "📋 复制提示")
+    g.ctl_copy := g.Add("CheckBox", "x20 y82 w130", T("set_copy"))
     g.ctl_copy.Value := c.enableCopyTip
 
     g.ctl_caps.OnEvent("Click", (ctrl, *) => ctrl.Gui.ctl_ime.Enabled := ctrl.Value)
@@ -685,13 +808,13 @@ ShowSettings(*) {
 
     ; === 显示时长 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y122", "显示时长")
+    g.Add("Text", "x20 y122", T("set_duration"))
     g.SetFont("Norm")
 
-    g.Add("Text", "x20 y147 w110", "大小写提示:")
+    g.Add("Text", "x20 y147 w140", T("set_caps_label"))
     g.ctl_capsDur := g.Add("Edit", "x200 y144 w60 h22 Number", c.capsShowDuration)
     g.Add("Text", "x265 y147", "ms")
-    g.Add("Text", "x20 y177 w110", "复制提示:")
+    g.Add("Text", "x20 y177 w110", T("set_copy_label"))
     g.ctl_copyDur := g.Add("Edit", "x200 y174 w60 h22 Number", c.copyShowDuration)
     g.Add("Text", "x265 y177", "ms")
 
@@ -699,21 +822,21 @@ ShowSettings(*) {
 
     ; === 提示位置 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y214", "提示位置")
+    g.Add("Text", "x20 y214", T("set_position"))
     g.SetFont("Norm")
 
-    g.ctl_pos1 := g.Add("Radio", "x20 y239 w100 +Group" . (c.tipPosition = 1 ? " Checked" : ""), "跟随鼠标")
-    g.ctl_pos2 := g.Add("Radio", "x20 y266 w280" . (c.tipPosition = 2 ? " Checked" : ""), "屏幕中央")
-    g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), "屏幕顶部")
-    g.ctl_pos4 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), "屏幕底部")
+    g.ctl_pos1 := g.Add("Radio", "x20 y239 w140 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
+    g.ctl_pos2 := g.Add("Radio", "x20 y266 w280" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
+    g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
+    g.ctl_pos4 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
     ; 偏移量输入框放在所有 Radio 之后，避免打断分组
-    g.Add("Text", "x200 y242", "偏移:")
+    g.Add("Text", "x200 y242", T("set_offset"))
     g.ctl_mouseOffset := g.Add("Edit", "x240 y239 w40 h22 Number", c.tipMouseOffset)
     g.Add("Text", "x283 y242", "px")
-    g.Add("Text", "x200 y296", "偏移:")
+    g.Add("Text", "x200 y296", T("set_offset"))
     g.ctl_topOffset := g.Add("Edit", "x240 y293 w40 h22 Number", c.tipTopOffset)
     g.Add("Text", "x283 y296", "px")
-    g.Add("Text", "x200 y323", "偏移:")
+    g.Add("Text", "x200 y323", T("set_offset"))
     g.ctl_bottomOffset := g.Add("Edit", "x240 y320 w40 h22 Number", c.tipBottomOffset)
     g.Add("Text", "x283 y323", "px")
 
@@ -721,35 +844,59 @@ ShowSettings(*) {
 
     ; === 外观样式 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y362", "外观样式")
+    g.Add("Text", "x20 y362", T("set_appearance"))
     g.SetFont("Norm")
 
-    g.ctl_lightMode := g.Add("Radio", "x20 y387 w100 +Group" . (c.tipLightMode ? " Checked" : ""), "浅色模式")
-    g.ctl_darkMode := g.Add("Radio", "x200 y387 w100" . (!c.tipLightMode ? " Checked" : ""), "深色模式")
-    g.Add("Text", "x20 y417 w40", "字号:")
+    g.ctl_lightMode := g.Add("Radio", "x20 y387 w100 +Group" . (c.tipLightMode ? " Checked" : ""), T("app_light"))
+    g.ctl_darkMode := g.Add("Radio", "x200 y387 w100" . (!c.tipLightMode ? " Checked" : ""), T("app_dark"))
+    g.Add("Text", "x20 y417 w40", T("set_fontsize"))
     g.ctl_fontSize := g.Add("Edit", "x60 y414 w40 h22 Number", c.tipFontSize)
-    g.ctl_bold := g.Add("CheckBox", "x200 y417 w60", "加粗")
+    g.ctl_bold := g.Add("CheckBox", "x200 y417 w60", T("set_bold"))
     g.ctl_bold.Value := c.tipFontBold
 
-    g.Add("Text", "x10 y445 w320 h1 BackgroundDDDDDD")
+    ; === 语言 ===
+    g.Add("Text", "x20 y447 w80", T("set_language"))
+    langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
+    g.ctl_lang := g.Add("DDL", "x200 y444 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
+    g.ctl_lang.OnEvent("Change", OnLangChange)
+
+    g.Add("Text", "x10 y475 w320 h1 BackgroundDDDDDD")
 
     ; === 按钮 ===
-    g.Add("Button", "x20 y460 w80", "恢复默认").OnEvent("Click", SettingsReset)
-    g.Add("Button", "x130 y460 w80 Default", "保存").OnEvent("Click", SettingsSave)
-    g.Add("Button", "x240 y460 w80", "取消").OnEvent("Click", SettingsClose)
+    g.Add("Button", "x20 y490 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
+    g.Add("Button", "x130 y490 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
+    g.Add("Button", "x240 y490 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    pic := g.Add("Picture", "x20 y500 w16 h16", icoPath)
-    pic.OnEvent("Click", (*) => Run("https://github.com/zeno528/CursorTip"))
+    g.Add("Picture", "x20 y530 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip.pages.dev/"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y502", '<a href="https://github.com/zeno528/CursorTip">GitHub</a>')
-    g.Add("Text", "x200 y502", "© 2026  MIT License")
+    g.Add("Link", "x40 y532", '<a href="https://cursortip.pages.dev/">' . T("link_about") . '</a>')
+    g.Add("Text", "x200 y532", "© 2026  MIT License")
 
-    g.Show("w340 h530")
+    g.Show("w340 h560")
     settingsGui := g
+}
+
+; 切换语言：保存配置并即时刷新托盘菜单 + 重建设置窗口
+OnLangChange(ctl, *) {
+    Config.language := ["auto", "zh", "en"][ctl.Value]
+    Config.Save()
+    ApplyLanguage()
+}
+
+; 应用当前 Config.language：更新 curLang、重建托盘、重开设置窗口
+ApplyLanguage() {
+    global curLang, settingsGui
+    curLang := (Config.language = "auto") ? DetectLang() : Config.language
+    BuildTrayMenu()
+    if (IsObject(settingsGui)) {
+        settingsGui.Destroy()
+        settingsGui := ""
+    }
+    ShowSettings()
 }
 
 SettingsClose(ctrlOrGui, *) {
@@ -784,6 +931,7 @@ SettingsReset(ctrl, *) {
     g.ctl_fontSize.Value := d.tipFontSize
     g.ctl_bold.Value := d.tipFontBold
     g.ctl_lightMode.Value := d.tipLightMode
+    g.ctl_lang.Value := Map("auto",1,"zh",2,"en",3)[d.language]
 }
 
 SettingsSave(ctrl, *) {
@@ -819,6 +967,7 @@ SettingsSave(ctrl, *) {
     c.tipFontSize := Max(8, Min(72, Integer(g.ctl_fontSize.Value || 9)))
     c.tipFontBold := g.ctl_bold.Value
     c.tipLightMode := g.ctl_lightMode.Value
+    c.language := ["auto", "zh", "en"][g.ctl_lang.Value]
 
     Config.Save()
     ApplySettings()
@@ -826,5 +975,5 @@ SettingsSave(ctrl, *) {
     g.Destroy()
     settingsGui := ""
 
-    ShowTip("设置已保存", 800)
+    ShowTip(T("msg_saved"), 800)
 }
