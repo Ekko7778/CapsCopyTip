@@ -238,13 +238,8 @@ global shiftAlone := false
 global tipGui := ""
 global tipGuiText := ""
 global settingsGui := ""
+global tipFixedWidth := 0  ; Caps/IME 提示固定宽度（按英文最宽文本测量，0=未测）
 
-; ============================================================
-; 临时调试日志（定位 caps| 缺 IME 问题，修复后删除）
-; ============================================================
-DebugLog(msg) {
-    try FileAppend(A_Now . " [" . A_TickCount . "] " . msg . "`n", A_Temp . "\CursorTip_debug.log")
-}
 
 ; ============================================================
 ; 托盘菜单
@@ -280,6 +275,7 @@ Config.Load()
 curLang := (Config.language = "auto") ? DetectLang() : Config.language
 BuildTrayMenu()
 InitMonitors()
+MeasureTipFixedWidth()
 
 return ; 自动执行段结束
 
@@ -336,6 +332,9 @@ ApplySettings() {
         tipGui := ""
         tipGuiText := ""
     }
+
+    ; 字号/主题/语言可能变化，重测固定宽度
+    MeasureTipFixedWidth()
 }
 
 ; ============================================================
@@ -370,121 +369,78 @@ SetStartup(enable) {
 ; ============================================================
 ; 提示窗口管理
 ; ============================================================
-ShowTip(text, duration := 0) {
-    global tipGui, tipGuiText
+; 测量英文模式下最宽 Caps/IME 提示（🔒 CAPS | ZH）的控件宽度，作为 Caps 提示固定宽度基准
+; 字号/主题/语言变化后在 ApplySettings 里重测
+MeasureTipFixedWidth() {
+    global tipFixedWidth
+    c := Config
+    g := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
+    g.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
+    t := g.Add("Text", "Center r1", L["en"]["caps_on"] . " | " . L["en"]["ime_zh"])
+    g.Show("Hide AutoSize")
+    t.GetPos(,, &tw, &th)
+    g.Destroy()
+    tipFixedWidth := tw
+}
+
+ShowTip(text, duration := 0, fixedWidth := false) {
+    global tipGui, tipGuiText, tipFixedWidth
     c := Config
 
-    ; ShowTip 涉及窗口句柄、控件引用和定时器，防止被 timer/热键重入导致状态错乱
+    ; 涉及窗口句柄和定时器，防止 timer/热键重入导致状态错乱
     Critical
     try {
-        ; 用 IsWindow 判断窗口是否仍然有效（包括隐藏窗口），WinExist 默认找不到隐藏窗口
-        winValid := IsObject(tipGui) ? DllCall("IsWindow", "Ptr", tipGui.Hwnd) : 0
-        winVisible := winValid ? DllCall("IsWindowVisible", "Ptr", tipGui.Hwnd) : 0
-        DebugLog("ShowTip text='" . text . "' winValid=" . winValid . " winVisible=" . winVisible . " tipGuiText.Value='" . (IsObject(tipGuiText) ? tipGuiText.Value : "") . "'")
-
-        ; 窗口仍有效：复用现有窗口（隐藏或可见）
-        if (winValid && IsObject(tipGuiText)) {
-            ; 文本完全相同：只需确保窗口可见并重制定时器
-            if (tipGuiText.Value = text) {
-                DebugLog("ShowTip reuse same text, reset timer")
-                if (!winVisible) {
-                    ; 隐藏状态下用当前尺寸重新定位并显示
-                    tipGui.GetPos(,, &gw, &gh)
-                    switch c.tipPosition {
-                        case 1:
-                            CoordMode "Mouse", "Screen"
-                            MouseGetPos(&mx, &my)
-                            tipGui.Show("x" . (mx + c.tipMouseOffset) . " y" . (my + c.tipMouseOffset) . " NA")
-                        case 2:
-                            tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh) / 2 . " NA")
-                        case 3:
-                            tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . c.tipTopOffset . " NA")
-                        case 4:
-                            tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh - c.tipBottomOffset) . " NA")
-                    }
-                }
-                if (duration > 0) {
-                    SetTimer(HideTip, 0)
-                    SetTimer(HideTip, -duration)
-                }
-                return
-            }
-
-            ; 文本不同：更新控件文本并重新计算位置/尺寸
-            tipGuiText.Value := text
-            DebugLog("ShowTip reuse updated text to='" . tipGuiText.Value . "'")
-
-            ; 窗口可能是隐藏的，内置 SendMessage 在 DetectHiddenWindows=false 时找不到目标，改用 DllCall 直接发 HWND
-            DllCall("SendMessage", "Ptr", tipGui.Hwnd, "UInt", 0xB, "UInt", 0, "UInt", 0, "Ptr")  ; 禁用重绘
-            tipGui.Show("Hide AutoSize")
-            tipGui.GetPos(,, &gw, &gh)
-            DebugLog("ShowTip reuse size gw=" . gw . " gh=" . gh)
-
-            switch c.tipPosition {
-                case 1:
-                    CoordMode "Mouse", "Screen"
-                    MouseGetPos(&mx, &my)
-                    tipGui.Show("x" . (mx + c.tipMouseOffset) . " y" . (my + c.tipMouseOffset) . " NA")
-                case 2:
-                    tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh) / 2 . " NA")
-                case 3:
-                    tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . c.tipTopOffset . " NA")
-                case 4:
-                    tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh - c.tipBottomOffset) . " NA")
-            }
-            DllCall("SendMessage", "Ptr", tipGui.Hwnd, "UInt", 0xB, "UInt", 1, "UInt", 0, "Ptr")  ; 启用重绘
-            DebugLog("ShowTip reuse shown, final text='" . tipGuiText.Value . "'")
-        } else {
-            DebugLog("ShowTip create-path")
-            ; 销毁旧窗口
-            if (IsObject(tipGui)) {
-                try tipGui.Destroy()
-                tipGui := ""
-                tipGuiText := ""
-            }
-
-            ; 创建新窗口
-            tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
-            if (c.tipLightMode) {
-                tipGui.BackColor := "F5F5F5"
-                textColor := "333333"
-            } else {
-                tipGui.BackColor := "333333"
-                textColor := "FFFFFF"
-            }
-            tipGui.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
-            tipGuiText := tipGui.Add("Text", "c" . textColor . " Center r1", text)
-
-            ; Windows 11 圆角
-            try {
-                DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)
-            }
-
-            ; 获取尺寸并计算位置
-            tipGui.Show("Hide AutoSize")
-            tipGui.GetPos(,, &gw, &gh)
-            gx := 0, gy := 0
-
-            switch c.tipPosition {
-                case 1:
-                    CoordMode "Mouse", "Screen"
-                    MouseGetPos(&mx, &my)
-                    gx := mx + c.tipMouseOffset
-                    gy := my + c.tipMouseOffset
-                case 2:
-                    gx := (A_ScreenWidth - gw) / 2
-                    gy := (A_ScreenHeight - gh) / 2
-                case 3:
-                    gx := (A_ScreenWidth - gw) / 2
-                    gy := c.tipTopOffset
-                case 4:
-                    gx := (A_ScreenWidth - gw) / 2
-                    gy := A_ScreenHeight - gh - c.tipBottomOffset
-            }
-
-            tipGui.Show("x" . gx . " y" . gy . " NA")
-            DebugLog("ShowTip create-path shown, text='" . tipGuiText.Value . "' size=" . gw . "x" . gh)
+        ; 每次都销毁旧窗口并新建：宽度/高度交给 AutoSize 全新计算，
+        ; 避免复用窗口时「.Value 变了但控件宽度不重算」导致中文被截断，
+        ; 也避免「重建控件走默认自动布局」导致窗口逐次变高
+        if (IsObject(tipGui)) {
+            try tipGui.Destroy()
+            tipGui := ""
+            tipGuiText := ""
         }
+
+        tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
+        if (c.tipLightMode) {
+            tipGui.BackColor := "F5F5F5"
+            textColor := "333333"
+        } else {
+            tipGui.BackColor := "333333"
+            textColor := "FFFFFF"
+        }
+        tipGui.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
+        textOpts := "c" . textColor . " Center r1"
+        if (fixedWidth && tipFixedWidth > 0)
+            textOpts := "w" . tipFixedWidth . " " . textOpts
+        tipGuiText := tipGui.Add("Text", textOpts, text)
+
+        ; Windows 11 圆角
+        try {
+            DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)
+        }
+
+        ; 先在隐藏状态下 AutoSize 取尺寸，再一次性定位显示，避免位置偏移与闪烁
+        tipGui.Show("Hide AutoSize")
+        tipGui.GetPos(,, &gw, &gh)
+        gx := 0, gy := 0
+
+        switch c.tipPosition {
+            case 1:
+                CoordMode "Mouse", "Screen"
+                MouseGetPos(&mx, &my)
+                gx := mx + c.tipMouseOffset
+                gy := my + c.tipMouseOffset
+            case 2:
+                gx := (A_ScreenWidth - gw) / 2
+                gy := (A_ScreenHeight - gh) / 2
+            case 3:
+                gx := (A_ScreenWidth - gw) / 2
+                gy := c.tipTopOffset
+            case 4:
+                gx := (A_ScreenWidth - gw) / 2
+                gy := A_ScreenHeight - gh - c.tipBottomOffset
+        }
+
+        tipGui.Show("x" . gx . " y" . gy . " NA")
 
         ; 自动关闭
         if (duration > 0) {
@@ -504,7 +460,6 @@ HideTip() {
     try {
         if (IsObject(tipGui) && DllCall("IsWindow", "Ptr", tipGui.Hwnd)) {
             tipGui.Hide()
-            DebugLog("HideTip hidden, hwnd=" . tipGui.Hwnd)
         }
         SetTimer(HideTip, 0)
     } finally {
@@ -548,7 +503,6 @@ GetIMEStatus(forceRefresh := false) {
             method := "Message"
         }
     } catch as e {
-        DebugLog("GetIMEStatus exception: " . e.Message)
     }
 
     if (result != "") {
@@ -557,7 +511,6 @@ GetIMEStatus(forceRefresh := false) {
     }
 
     lastCheckTime := A_TickCount
-    DebugLog("GetIMEStatus hWnd=" . hWnd . " forceRefresh=" . forceRefresh . " method=" . method . " result='" . result . "' lastResult='" . lastResult . "' lastWindowHash=" . lastWindowHash)
     return lastResult
 }
 
@@ -629,8 +582,7 @@ ShowCapsStatus(forceRefreshIME := false) {
         tip := capsIcon
     }
 
-    DebugLog("ShowCapsStatus forceRefreshIME=" . forceRefreshIME . " caps=" . caps . " showIME=" . Config.showIMEStatus . " tip='" . tip . "'")
-    ShowTip(tip, Config.capsShowDuration)
+    ShowTip(tip, Config.capsShowDuration, true)
 }
 
 ; Shift 独立按下检测：只有单独按下并释放 Shift 才触发
