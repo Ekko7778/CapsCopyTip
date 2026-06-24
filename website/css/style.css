@@ -1413,7 +1413,7 @@ button {
     from {
         opacity: 0;
         transform: translate3d(0, 20px, 0);
-        filter: blur(1px);
+        filter: blur(4px);
     }
     to {
         opacity: 1;
@@ -1432,11 +1432,11 @@ button {
 }
 
 /* 统一延迟：使用更小的间隔，让同一区域元素几乎同时进场 */
-.js-enabled .reveal-delay-1.is-visible { animation-delay: 30ms; }
-.js-enabled .reveal-delay-2.is-visible { animation-delay: 50ms; }
-.js-enabled .reveal-delay-3.is-visible { animation-delay: 70ms; }
-.js-enabled .reveal-delay-4.is-visible { animation-delay: 90ms; }
-.js-enabled .reveal-delay-5.is-visible { animation-delay: 110ms; }
+.js-enabled .reveal-delay-1.is-visible { animation-delay: 120ms; }
+.js-enabled .reveal-delay-2.is-visible { animation-delay: 240ms; }
+.js-enabled .reveal-delay-3.is-visible { animation-delay: 360ms; }
+.js-enabled .reveal-delay-4.is-visible { animation-delay: 480ms; }
+.js-enabled .reveal-delay-5.is-visible { animation-delay: 600ms; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

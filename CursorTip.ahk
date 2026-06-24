@@ -15,7 +15,7 @@ A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "1.0.0"
+global VERSION := "1.0.1"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -905,6 +905,9 @@ ShowSettings(*) {
     showOpts := "w340 h560"
     if (settingsOpenPos != "")
         showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
+    ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
+    ; 避免淡入期间底下旧窗口的文字透过来形成一瞬间残影
+    try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", g.Hwnd, "Int", 3, "Int*", 1, "Int", 4)
     g.Show(showOpts)
     settingsGui := g
 }
