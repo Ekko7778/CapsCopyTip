@@ -239,6 +239,7 @@ global tipGui := ""
 global tipGuiText := ""
 global settingsGui := ""
 global tipFixedWidth := 0  ; Caps/IME 提示固定宽度（按英文最宽文本测量，0=未测）
+global tipGuiIsFixed := false  ; 当前 tipGui 是否固定宽度模式（决定能否复用窗口避免闪烁）
 
 
 ; ============================================================
@@ -383,64 +384,75 @@ MeasureTipFixedWidth() {
     tipFixedWidth := tw
 }
 
+; 按 tipPosition 把 tipGui 定位显示（gw/gh 为当前窗口尺寸）；NA=不抢焦点
+ShowTipAt(gw, gh) {
+    global tipGui
+    c := Config
+    switch c.tipPosition {
+        case 1:
+            CoordMode "Mouse", "Screen"
+            MouseGetPos(&mx, &my)
+            tipGui.Show("x" . (mx + c.tipMouseOffset) . " y" . (my + c.tipMouseOffset) . " NA")
+        case 2:
+            tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh) / 2 . " NA")
+        case 3:
+            tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . c.tipTopOffset . " NA")
+        case 4:
+            tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh - c.tipBottomOffset) . " NA")
+    }
+}
+
 ShowTip(text, duration := 0, fixedWidth := false) {
-    global tipGui, tipGuiText, tipFixedWidth
+    global tipGui, tipGuiText, tipFixedWidth, tipGuiIsFixed
     c := Config
 
     ; 涉及窗口句柄和定时器，防止 timer/热键重入导致状态错乱
     Critical
     try {
-        ; 每次都销毁旧窗口并新建：宽度/高度交给 AutoSize 全新计算，
-        ; 避免复用窗口时「.Value 变了但控件宽度不重算」导致中文被截断，
-        ; 也避免「重建控件走默认自动布局」导致窗口逐次变高
-        if (IsObject(tipGui)) {
-            try tipGui.Destroy()
-            tipGui := ""
-            tipGuiText := ""
-        }
+        winValid := IsObject(tipGui) ? DllCall("IsWindow", "Ptr", tipGui.Hwnd) : 0
 
-        tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
-        if (c.tipLightMode) {
-            tipGui.BackColor := "F5F5F5"
-            textColor := "333333"
+        ; 仅固定宽度模式（Caps/IME 提示）复用窗口：控件宽度恒定，只改 .Value 即可，
+        ; 无需 Destroy/Create，杜绝切换时的空帧闪烁。
+        ; 自适应宽度（复制提示）宽度随文本变化，必须销毁重建才能正确量宽，不复用。
+        ; （历史复用 bug 全源于「要重算宽度」：中文截断 / 控件堆叠变高 / 重绘残影——
+        ;   固定宽度下不重算，这些坑不存在。）
+        if (fixedWidth && tipGuiIsFixed && winValid && IsObject(tipGuiText)) {
+            tipGuiText.Value := text
+            tipGui.GetPos(,, &gw, &gh)
+            ShowTipAt(gw, gh)
         } else {
-            tipGui.BackColor := "333333"
-            textColor := "FFFFFF"
+            ; 宽度模式变化或窗口无效：销毁重建，AutoSize 全新计算尺寸
+            if (IsObject(tipGui)) {
+                try tipGui.Destroy()
+                tipGui := ""
+                tipGuiText := ""
+            }
+
+            tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
+            if (c.tipLightMode) {
+                tipGui.BackColor := "F5F5F5"
+                textColor := "333333"
+            } else {
+                tipGui.BackColor := "333333"
+                textColor := "FFFFFF"
+            }
+            tipGui.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
+            textOpts := "c" . textColor . " Center r1"
+            if (fixedWidth && tipFixedWidth > 0)
+                textOpts := "w" . tipFixedWidth . " " . textOpts
+            tipGuiText := tipGui.Add("Text", textOpts, text)
+
+            ; Windows 11 圆角
+            try {
+                DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)
+            }
+
+            ; 先在隐藏状态下 AutoSize 取尺寸，再一次性定位显示
+            tipGui.Show("Hide AutoSize")
+            tipGui.GetPos(,, &gw, &gh)
+            ShowTipAt(gw, gh)
+            tipGuiIsFixed := fixedWidth
         }
-        tipGui.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
-        textOpts := "c" . textColor . " Center r1"
-        if (fixedWidth && tipFixedWidth > 0)
-            textOpts := "w" . tipFixedWidth . " " . textOpts
-        tipGuiText := tipGui.Add("Text", textOpts, text)
-
-        ; Windows 11 圆角
-        try {
-            DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)
-        }
-
-        ; 先在隐藏状态下 AutoSize 取尺寸，再一次性定位显示，避免位置偏移与闪烁
-        tipGui.Show("Hide AutoSize")
-        tipGui.GetPos(,, &gw, &gh)
-        gx := 0, gy := 0
-
-        switch c.tipPosition {
-            case 1:
-                CoordMode "Mouse", "Screen"
-                MouseGetPos(&mx, &my)
-                gx := mx + c.tipMouseOffset
-                gy := my + c.tipMouseOffset
-            case 2:
-                gx := (A_ScreenWidth - gw) / 2
-                gy := (A_ScreenHeight - gh) / 2
-            case 3:
-                gx := (A_ScreenWidth - gw) / 2
-                gy := c.tipTopOffset
-            case 4:
-                gx := (A_ScreenWidth - gw) / 2
-                gy := A_ScreenHeight - gh - c.tipBottomOffset
-        }
-
-        tipGui.Show("x" . gx . " y" . gy . " NA")
 
         ; 自动关闭
         if (duration > 0) {
