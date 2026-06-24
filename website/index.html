@@ -367,6 +367,32 @@
         </div>
     </section>
 
+
+    <!-- Star History -->
+    <section id="stars" class="section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="section-eyebrow" data-i18n="stars.eyebrow">STAR HISTORY</span>
+                <h2 class="section-title"><span data-i18n="stars.title">Star 趋势</span></h2>
+                <p class="section-subtitle">
+                    <span data-i18n="stars.subtitle">感谢每一个 Star</span>
+                    <svg class="stars-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <defs>
+                            <filter id="stars-rough" x="-15%" y="-15%" width="130%" height="130%">
+                                <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="4" result="noise"/>
+                                <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.4"/>
+                            </filter>
+                        </defs>
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" filter="url(#stars-rough)"/>
+                    </svg>
+                </p>
+            </div>
+            <a class="stars-chart reveal" href="https://star-history.com/#zeno528/CursorTip&Date" target="_blank" rel="noopener" aria-label="Star History">
+                <img src="https://api.star-history.com/svg?repos=zeno528/CursorTip&type=Date&legend=top-left" alt="CursorTip Star History" loading="lazy">
+            </a>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">

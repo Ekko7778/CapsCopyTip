@@ -1318,6 +1318,38 @@ button {
     line-height: 1.6;
 }
 
+
+.stars-chart {
+    display: block;
+    max-width: 900px;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    background: transparent;
+    transition: border-color 200ms var(--ease), transform 200ms var(--ease);
+}
+
+.stars-chart:hover {
+    border-color: var(--accent, #3b82f6);
+    transform: translateY(-2px);
+}
+
+.stars-chart img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.stars-icon {
+    display: inline-block;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.18em;
+    margin-left: 0.25em;
+    color: var(--amber);
+    filter: drop-shadow(0 0 6px var(--amber-soft));
+}
 /* ==========================================================================
    Footer
    ========================================================================== */

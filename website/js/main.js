@@ -54,6 +54,9 @@ const i18n = {
         'changelog.v1.0.10': '升级为二十进制版本规范',
         'changelog.v1.0.8': '引入 DefaultConfig，设置窗口 UI 重构，内存泄漏修复',
         'changelog.viewAll': '查看全部版本',
+        'stars.eyebrow': 'STAR HISTORY',
+        'stars.title': 'Star 趋势',
+        'stars.subtitle': '感谢每一个 Star',
         'footer.releases': 'Releases',
         'footer.copy': '© 2026 CursorTip. 使用 AutoHotkey v2 构建',
         'footer.cta': '❤️ 觉得不错？点个 Star'
@@ -112,6 +115,9 @@ const i18n = {
         'changelog.v1.0.10': 'Upgraded to vigesimal versioning scheme',
         'changelog.v1.0.8': 'DefaultConfig, settings UI overhaul, memory leak fixes',
         'changelog.viewAll': 'View All Releases',
+        'stars.eyebrow': 'STAR HISTORY',
+        'stars.title': 'Star Growth',
+        'stars.subtitle': 'Thanks for every',
         'footer.releases': 'Releases',
         'footer.copy': '© 2026 CursorTip. Built with AutoHotkey v2',
         'footer.cta': '❤️ Like it? Give a Star'
