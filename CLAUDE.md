@@ -29,6 +29,32 @@ CursorTip 项目的 AI 工作规范。事实描述（目录结构、文件清单
     2. **AHK v2 官方**：context7 `/websites/autohotkey_v2`（v2 语法命中率 100%）
     3. **Windows API**：tavily search → Microsoft Docs（多源交叉验证）
 
+## 调试接口
+
+AI 接手排查问题时，读 `work/debug.log`（gitignore）看运行时状态。
+
+**调试命令：**
+
+```bash
+tail -50 work/debug.log              # 最近 50 行
+tail -f work/debug.log               # 实时跟踪
+grep "Clipboard" work/debug.log      # 按事件过滤
+```
+
+**日志覆盖的 4 个事件：**
+
+| 事件 | 输出示例 |
+|:---|:---|
+| CapsLock 状态变化 | `CursorTip: CapsLock -> ON` |
+| IME 检测结果 | `CursorTip: IME -> 中 (method=Conversion)` |
+| 剪贴板复制类型 | `CursorTip: Clipboard -> 5 file(s)` / `image` / `12 chars` |
+| ShowTip 显示 | `CursorTip: ShowTip text='🔒 大写 \| 中' dur=800 fixed=1` |
+
+**约束：**
+- 调试代码保留在产品里，不区分「开发版 / 发行版」——性能开销可忽略，给 AI 留永久调试接口
+- 不要把 `work/debug.log` 加进 git（已在 .gitignore）
+- 启动时脚本会清空旧日志（`work/debug.log` 每次重启从零开始）
+
 ## 约束与避坑
 
 - **没有测试 / CI / Linter**，验证全靠手动。

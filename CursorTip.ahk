@@ -274,6 +274,12 @@ OnExit(OnScriptExit)
 ; 启动
 ; ============================================================
 Config.Load()
+; 调试日志：每次启动清空，AI 通过读 work/debug.log 调试
+try {
+    DirCreate("work")
+    FileDelete("work\debug.log")
+    FileAppend("CursorTip: started at " . A_Now . "`n", "work\debug.log")
+}
 curLang := (Config.language = "auto") ? DetectLang() : Config.language
 BuildTrayMenu()
 InitMonitors()
@@ -406,6 +412,7 @@ ShowTipAt(gw, gh) {
 ShowTip(text, duration := 0, fixedWidth := false) {
     global tipGui, tipGuiText, tipFixedWidth, tipGuiIsFixed
     c := Config
+    FileAppend("CursorTip: ShowTip text='" . text . "' dur=" . duration . " fixed=" . fixedWidth . "`n", "work\debug.log")
 
     ; 涉及窗口句柄和定时器，防止 timer/热键重入导致状态错乱
     Critical
@@ -521,6 +528,7 @@ GetIMEStatus(forceRefresh := false) {
     if (result != "") {
         lastResult := result
         lastWindowHash := WinExist("A")
+        FileAppend("CursorTip: IME -> " . result . " (method=" . method . ")`n", "work\debug.log")
     }
 
     lastCheckTime := A_TickCount
@@ -574,6 +582,7 @@ CheckCapsLock() {
     if (current != lastCapsState) {
         lastCapsState := current
         lastCapsChangeTime := A_TickCount
+        FileAppend("CursorTip: CapsLock -> " . (current ? "ON" : "OFF") . "`n", "work\debug.log")
         ShowCapsStatus()
     }
 }
@@ -768,15 +777,20 @@ ClipChanged(dataType) {
             clipText := A_Clipboard
             files := StrSplit(clipText, "`n", "`r")
             count := files.Length
-            if (count > 0 && files[1] != "")
+            if (count > 0 && files[1] != "") {
+                FileAppend("CursorTip: Clipboard -> " . count . " file(s)`n", "work\debug.log")
                 ShowTip(T("copy_files", count), Config.copyShowDuration)
+            }
         } else if (isImage) {
+            FileAppend("CursorTip: Clipboard -> image`n", "work\debug.log")
             ShowTip(T("copy_image"), Config.copyShowDuration)
         } else {
             clipText := A_Clipboard
             length := StrLen(clipText)
-            if (length > 0)
+            if (length > 0) {
+                FileAppend("CursorTip: Clipboard -> " . length . " chars`n", "work\debug.log")
                 ShowTip(T("copy_chars", length), Config.copyShowDuration)
+            }
         }
     } catch {
         ; 剪贴板被占用，静默忽略
