@@ -889,8 +889,8 @@ ShowSettings(*) {
 
     ; === 按钮 ===
     g.Add("Button", "x20 y490 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
-    g.Add("Button", "x130 y490 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
-    g.Add("Button", "x240 y490 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
+    g.Add("Button", "x130 y490 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
+    g.Add("Button", "x240 y490 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
