@@ -853,17 +853,16 @@ ShowSettings(*) {
     g.ctl_pos2 := g.Add("Radio", "x20 y266 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
     g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
     g.ctl_pos4 := g.Add("Radio", "x20 y320 w140" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
-    ; 偏移量输入框放在所有 Radio 之后，避免打断分组
-    ; 标签用 w50 Right 右对齐，文字在 x200-250 内，避免与 x255 的 Edit 重叠（中文"偏移:"/英文"Offset:" 都能放下）
-    g.Add("Text", "x200 y242 w50 Right", T("set_offset"))
-    g.ctl_mouseOffset := g.Add("Edit", "x255 y239 w40 h22 Number", c.tipMouseOffset)
-    g.Add("Text", "x300 y242", "px")
-    g.Add("Text", "x200 y269 w50 Right", T("set_offset"))
-    g.ctl_topOffset := g.Add("Edit", "x255 y266 w40 h22 Number", c.tipTopOffset)
-    g.Add("Text", "x300 y269", "px")
-    g.Add("Text", "x200 y296 w50 Right", T("set_offset"))
-    g.ctl_bottomOffset := g.Add("Edit", "x255 y293 w40 h22 Number", c.tipBottomOffset)
-    g.Add("Text", "x300 y296", "px")
+    ; 偏移量紧跟 Radio 文字，Radio 最长到 x140（英文"Follow mouse"）
+    g.Add("Text", "x190 y242 w40 Right", T("set_offset"))
+    g.ctl_mouseOffset := g.Add("Edit", "x235 y239 w35 h22 Number", c.tipMouseOffset)
+    g.Add("Text", "x275 y242", "px")
+    g.Add("Text", "x190 y269 w40 Right", T("set_offset"))
+    g.ctl_topOffset := g.Add("Edit", "x235 y266 w35 h22 Number", c.tipTopOffset)
+    g.Add("Text", "x275 y269", "px")
+    g.Add("Text", "x190 y296 w40 Right", T("set_offset"))
+    g.ctl_bottomOffset := g.Add("Edit", "x235 y293 w35 h22 Number", c.tipBottomOffset)
+    g.Add("Text", "x275 y296", "px")
 
     g.Add("Text", "x10 y350 w320 h1 BackgroundDDDDDD")
 
