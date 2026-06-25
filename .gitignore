@@ -1,0 +1,22 @@
+# 编译产物
+dist/
+config.ini
+
+# 本地历史归档
+archive/
+
+# Wrangler 缓存
+.wrangler/
+
+# Playwright MCP 临时目录
+.playwright-mcp/
+
+# 本地 AI 协作
+.claude/
+.agents/
+
+
+# 本地临时文件
+_diff.txt
+work/
+CLAUDE.md
