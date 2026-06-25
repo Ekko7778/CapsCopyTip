@@ -4,7 +4,7 @@
 
 # CursorTip
 
-**轻量级 Windows 桌面状态提示工具** · [了解更多](https://cursortip.pages.dev/)
+**轻量 · Windows 桌面状态提示工具** · [了解更多](https://cursortip.pages.dev/)
 
 在屏幕上实时显示键盘大小写 + 输入法提示和剪贴板操作反馈，帮助你准确感知输入环境。
 

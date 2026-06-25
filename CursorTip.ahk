@@ -6,7 +6,7 @@
 ; - 右键托盘图标可打开设置
 ; ============================================================
 
-;@Ahk2Exe-SetMainIcon %A_ScriptDir%\assets\capslocker_macos_bigsur_icon_190309.ico
+;@Ahk2Exe-SetMainIcon %A_ScriptDir%\assets\app.ico
 
 #SingleInstance Force
 Persistent
