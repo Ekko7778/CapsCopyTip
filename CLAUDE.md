@@ -1,61 +1,52 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件用于指导 Claude Code（claude.ai/code）在处理本仓库代码时的工作方式。
 
-## Repository Layout
+## 仓库结构
 
-This is the `main` branch, which contains only the AutoHotkey v2 desktop application. The product website lives in the separate `website` branch (commit `4784909` split them). If you need to edit the site, switch branches; do not add HTML/CSS/JS files here.
+当前在 `main` 分支，**只包含** AutoHotkey v2 桌面应用。产品官网在独立的 `website` 分支（由 commit `4784909` 拆分）。如果需要编辑官网内容，请切换到对应分支，不要在 `main` 分支添加 HTML/CSS/JS 文件。
 
-## Build & Run
+## 构建与运行
 
-Prerequisite: [AutoHotkey v2](https://www.autohotkey.com/) installed.
+前置条件：已安装 [AutoHotkey v2](https://www.autohotkey.com/)。
 
-Run without compiling:
+不编译直接运行：
 
 ```bash
 "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" CursorTip.ahk
 ```
 
-Compile to `CursorTip.exe` (release build):
+编译为 `CursorTip.exe` 走 **`cursortip-build` skill**（触发词：编译 / 打包 / 构建 / 生成 exe / 封装成 exe），由 skill 封装 Ahk2Exe 调用与图标参数，本文件不重复。
 
-```bash
-"C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe" \
-  /in CursorTip.ahk \
-  /out CursorTip.exe \
-  /base "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
-```
+AHK 代码没有测试套件也没有 Linter，验证全靠手动：运行脚本、切换 CapsLock、复制文本/文件/图片，并测试设置窗口。
 
-The script already contains `;@Ahk2Exe-SetMainIcon %A_ScriptDir%\assets\app.ico`, so no `/icon` argument is needed.
+## 整体架构
 
-There is no test suite or linter for the AHK code. Verification is manual: run the script, toggle CapsLock, copy text/files/images, and exercise the settings window.
+`CursorTip.ahk` 故意做成了单文件应用，所有运行时逻辑都在这一个文件里。
 
-## High-Level Architecture
+- **`Config` 类** —— 静态配置单例。保存默认值，从 `A_ScriptDir\config.ini` 读写。所有设置在启动时走 `Config.Load()`，修改时走 `Config.Save()`。
+- **Tip 窗口生命周期** —— `ShowTip()` 创建或复用无边框 `Gui` 窗口。固定宽度的提示（CapsLock/IME）复用同一个窗口以避免闪烁；可变宽度的提示（复制反馈）则重建窗口，让 `AutoSize` 正确测量新文本。
+- **CapsLock + IME 检测** —— `CheckCapsLock()` 每 50 ms 轮询一次。`GetIMEStatus()` 优先调用 `imm32\ImmGetConversionStatus`；失败时回退到 `ImmGetDefaultIMEWnd` + `SendMessage(0x283, 0x005, ...)`。结果缓存 150 ms，除非显式传入 `forceRefresh`。
+- **复制反馈** —— `OnClipboardChange(ClipChanged)` 通过 `IsClipboardFormatAvailable` 检查剪贴板格式，区分文件（`CF_HDROP = 15`）、图片（`CF_BITMAP`、`CF_DIB`、`CF_DIBV5`）和文本。
+- **设置界面** —— `ShowSettings()` 构造窗口。`SettingsSave()` 读取控件、校验边界、调用 `Config.Save()` 和 `ApplySettings()`，然后销毁窗口。语言切换时 `ApplyLanguage()` 会在原窗口上重建设置界面。
+- **开机自启** —— `SetStartup()` 写入或删除 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\CursorTip`，指向脚本目录下的 `CursorTip.exe`。
 
-`CursorTip.ahk` is intentionally a single-file application. All runtime logic lives in this file.
+全文件通用的 AutoHotkey v2 约定：
 
-- **`Config` class** — Static configuration singleton. Holds defaults, reads from/writes to `A_ScriptDir\config.ini`. All settings flow through `Config.Load()` at startup and `Config.Save()` on change.
-- **Tip window lifecycle** — `ShowTip()` creates or reuses a borderless `Gui` window. Fixed-width tips (CapsLock/IME) reuse the same window to avoid flicker; variable-width tips (copy feedback) recreate the window so `AutoSize` measures the new text correctly.
-- **CapsLock + IME detection** — `CheckCapsLock()` polls every 50 ms. `GetIMEStatus()` first tries `imm32\ImmGetConversionStatus`; if that fails, it falls back to `ImmGetDefaultIMEWnd` + `SendMessage(0x283, 0x005, ...)`. Results are cached for 150 ms unless `forceRefresh` is requested.
-- **Copy feedback** — `OnClipboardChange(ClipChanged)` inspects clipboard formats via `IsClipboardFormatAvailable`. It distinguishes files (`CF_HDROP = 15`), images (`CF_BITMAP`, `CF_DIB`, `CF_DIBV5`), and text.
-- **Settings GUI** — `ShowSettings()` builds the window. `SettingsSave()` reads controls, validates bounds, calls `Config.Save()` and `ApplySettings()`, then destroys the window. `ApplyLanguage()` rebuilds the settings window in place when the language changes.
-- **Startup toggle** — `SetStartup()` writes or deletes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\CursorTip`, pointing to `CursorTip.exe` in the script directory.
+- 函数默认是 **assume-local**（默认局部变量），给脚本级全局变量赋值时要用 `global var1, var2`。
+- 类的静态属性（如 `Config.*`）随处可直接访问，不需要 `global`。
+- `Gui.OnEvent("Close", ...)` 传入的是 `Gui`；`GuiCtrl.OnEvent("Click", ...)` 传入的是带 `.Gui` 属性的 `GuiControl`。`SettingsClose()` 同时处理这两种情况。
+- `IsObject(gui)` **并不能**说明窗口还存在；必须搭配 `WinExist("ahk_id " . gui.Hwnd)` 使用。
 
-Important AutoHotkey v2 conventions used throughout:
+## 重要文件
 
-- Functions are **assume-local** by default. Use `global var1, var2` when assigning to script-level globals.
-- Class static properties (`Config.*`) are accessible everywhere without `global`.
-- `Gui.OnEvent("Close", ...)` passes a `Gui`; `GuiCtrl.OnEvent("Click", ...)` passes a `GuiControl` with a `.Gui` property. `SettingsClose()` handles both.
-- `IsObject(gui)` does **not** mean the window still exists; always pair it with `WinExist("ahk_id " . gui.Hwnd)`.
+- `CursorTip.ahk` —— 整个 AHK 应用。
+- `config.ini` —— 用户配置，运行时生成，已加入 `.gitignore`。
+- `docs/ahk-v2-development-guide.md` —— AHK v2 模式与项目专属设计笔记。其中部分路径涉及较早的重构（`CapsCopyTip`、`lib/`），但当前项目是单文件应用，那些内容当作「模式参考」看就行，不要照搬结构。
 
-## Important Files
+## 常见坑
 
-- `CursorTip.ahk` — entire AHK application.
-- `config.ini` — user configuration, generated at runtime, ignored by git.
-- `docs/ahk-v2-development-guide.md` — AHK v2 patterns and project-specific design notes. Some paths refer to an older refactor (`CapsCopyTip`, `lib/`); the current project is a single-file app, so treat those as pattern guidance rather than literal structure.
-
-## Common Gotchas
-
-- `work/` is a local scratch directory ignored by git.
-- Compiled output `CursorTip.exe` and `dist/` are ignored.
-- The project has no package manager, no tests, and no CI. Verification is manual.
-- For the website branch, see its own `AGENTS.md`.
+- `work/` 是本地临时目录，已加入 `.gitignore`。
+- 编译产物 `CursorTip.exe` 与 `dist/` 都被忽略。
+- 项目没有包管理、没有测试、没有 CI，验证全靠手动。
+- 官网分支有自己的 `AGENTS.md`，需要时切过去看。

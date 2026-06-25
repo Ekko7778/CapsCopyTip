@@ -803,7 +803,7 @@ ShowSettings(*) {
     }
 
     c := Config
-    g := Gui("+Owner", "CursorTip v" . VERSION)
+    g := Gui(, "CursorTip v" . VERSION)
     g.SetFont("s10", "Microsoft YaHei")
 
     ; === 功能开关 ===
