@@ -36,7 +36,7 @@ class Config {
         tipBottomOffset: 100,
         tipFontSize: 9,
         tipFontBold: true,
-        tipLightMode: true,
+        tipLightMode: "auto",
         language: "auto"
     }
 
@@ -52,7 +52,7 @@ class Config {
     static tipBottomOffset := 100
     static tipFontSize := 9
     static tipFontBold := true
-    static tipLightMode := true
+    static tipLightMode := "auto"
     static language := "auto"
 
     ; 加载配置
@@ -76,7 +76,9 @@ class Config {
 
             c.tipFontSize := Integer(IniRead(Config.Path, "Settings", "TipFontSize", 9))
             c.tipFontBold := IniRead(Config.Path, "Settings", "TipFontBold", 1) = 1
-            c.tipLightMode := IniRead(Config.Path, "Settings", "TipLightMode", 0) = 1
+            tipRaw := IniRead(Config.Path, "Settings", "TipLightMode", "auto")
+            ; 兼容旧版布尔值（0/1）→ 新版字符串（"light"/"dark"/"auto"）
+            c.tipLightMode := IsInteger(tipRaw) ? (tipRaw = 1 ? "light" : "dark") : tipRaw
             c.language := IniRead(Config.Path, "Settings", "Language", "auto")
         } catch {
             ; 读取失败，使用默认值
@@ -101,7 +103,7 @@ class Config {
 
             IniWrite(c.tipFontSize, Config.Path, "Settings", "TipFontSize")
             IniWrite(c.tipFontBold ? 1 : 0, Config.Path, "Settings", "TipFontBold")
-            IniWrite(c.tipLightMode ? 1 : 0, Config.Path, "Settings", "TipLightMode")
+            IniWrite(c.tipLightMode, Config.Path, "Settings", "TipLightMode")
             IniWrite(c.language, Config.Path, "Settings", "Language")
         } catch as e {
             MsgBox(T("err_save_config") . e.Message, T("err_title"), 16)
@@ -145,6 +147,7 @@ global L := Map(
         "pos_bottom", "屏幕底部",
         "set_offset", "偏移:",
         "set_appearance", "外观样式",
+        "app_auto", "跟随系统",
         "app_light", "浅色模式",
         "app_dark", "深色模式",
         "set_fontsize", "字号:",
@@ -188,6 +191,7 @@ global L := Map(
         "pos_bottom", "Bottom",
         "set_offset", "Offset:",
         "set_appearance", "Appearance",
+        "app_auto", "Follow system",
         "app_light", "Light",
         "app_dark", "Dark",
         "set_fontsize", "Font size:",
@@ -437,7 +441,8 @@ ShowTip(text, duration := 0, fixedWidth := false) {
             }
 
             tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
-            if (c.tipLightMode) {
+            theme := (c.tipLightMode = "auto") ? GetSystemTheme() : c.tipLightMode
+            if (theme = "light") {
                 tipGui.BackColor := "F5F5F5"
                 textColor := "333333"
             } else {
@@ -568,6 +573,15 @@ DetectIMEViaMessage(hWnd) {
         DetectHiddenWindows(saved)
     }
     return ""
+}
+
+; ============================================================
+; 系统主题检测
+; ============================================================
+; 读注册表 AppsUseLightTheme：1=浅色，0=深色；键不存在时默认 1（浅色）
+GetSystemTheme() {
+    value := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+    return value ? "light" : "dark"
 }
 
 ; ============================================================
@@ -885,37 +899,38 @@ ShowSettings(*) {
     g.Add("Text", "x20 y362", T("set_appearance"))
     g.SetFont("Norm")
 
-    g.ctl_lightMode := g.Add("Radio", "x20 y387 w100 +Group" . (c.tipLightMode ? " Checked" : ""), T("app_light"))
-    g.ctl_darkMode := g.Add("Radio", "x200 y387 w100" . (!c.tipLightMode ? " Checked" : ""), T("app_dark"))
-    g.Add("Text", "x20 y417 w70", T("set_fontsize"))
-    g.ctl_fontSize := g.Add("Edit", "x95 y414 w40 h22 Number", c.tipFontSize)
-    g.ctl_bold := g.Add("CheckBox", "x200 y417 w60", T("set_bold"))
+    g.ctl_themeAuto := g.Add("Radio", "x20 y387 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto"))
+    g.ctl_lightMode := g.Add("Radio", "x20 y414 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
+    g.ctl_darkMode := g.Add("Radio", "x200 y414 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
+    g.Add("Text", "x20 y444 w70", T("set_fontsize"))
+    g.ctl_fontSize := g.Add("Edit", "x95 y441 w40 h22 Number", c.tipFontSize)
+    g.ctl_bold := g.Add("CheckBox", "x200 y444 w60", T("set_bold"))
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 语言 ===
-    g.Add("Text", "x20 y447 w80", T("set_language"))
+    g.Add("Text", "x20 y474 w80", T("set_language"))
     langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
-    g.ctl_lang := g.Add("DDL", "x200 y444 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
+    g.ctl_lang := g.Add("DDL", "x200 y471 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
     g.ctl_lang.OnEvent("Change", OnLangChange)
 
-    g.Add("Text", "x10 y475 w320 h1 BackgroundDDDDDD")
+    g.Add("Text", "x10 y502 w320 h1 BackgroundDDDDDD")
 
     ; === 按钮 ===
-    g.Add("Button", "x20 y490 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
-    g.Add("Button", "x130 y490 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
-    g.Add("Button", "x240 y490 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
+    g.Add("Button", "x20 y517 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
+    g.Add("Button", "x130 y517 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
+    g.Add("Button", "x240 y517 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    g.Add("Picture", "x20 y530 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip.pages.dev/"))
+    g.Add("Picture", "x20 y557 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip.pages.dev/"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y532", '<a href="https://cursortip.pages.dev/">' . T("link_about") . '</a>')
-    g.Add("Text", "x200 y532", "© 2026  MIT License")
+    g.Add("Link", "x40 y559", '<a href="https://cursortip.pages.dev/">' . T("link_about") . '</a>')
+    g.Add("Text", "x200 y559", "© 2026  MIT License")
 
     ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
-    showOpts := "w340 h560"
+    showOpts := "w340 h587"
     if (settingsOpenPos != "")
         showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
     ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
@@ -987,7 +1002,9 @@ SettingsReset(ctrl, *) {
 
     g.ctl_fontSize.Value := d.tipFontSize
     g.ctl_bold.Value := d.tipFontBold
-    g.ctl_lightMode.Value := d.tipLightMode
+    g.ctl_themeAuto.Value := (d.tipLightMode = "auto")
+    g.ctl_lightMode.Value := (d.tipLightMode = "light")
+    g.ctl_darkMode.Value := (d.tipLightMode = "dark")
     g.ctl_lang.Value := Map("auto",1,"zh",2,"en",3)[d.language]
 }
 
@@ -1024,7 +1041,7 @@ SettingsSave(ctrl, *) {
 
     c.tipFontSize := Max(8, Min(72, Integer(g.ctl_fontSize.Value || 9)))
     c.tipFontBold := g.ctl_bold.Value
-    c.tipLightMode := g.ctl_lightMode.Value
+    c.tipLightMode := g.ctl_themeAuto.Value ? "auto" : (g.ctl_lightMode.Value ? "light" : "dark")
     c.language := ["auto", "zh", "en"][g.ctl_lang.Value]
 
     Config.Save()
