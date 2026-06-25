@@ -1,29 +1,21 @@
-# 第三方项目
-language-indicator/
-lib/
-
-# 项目规则（本地配置）
-CLAUDE.md
-.claude/
-
 # 编译产物
 dist/
 config.ini
 
-# 旧版文件
+# 本地历史归档
 archive/
 
 # Wrangler 缓存
 .wrangler/
 
-# Website 调试图片
-website/*.png
-
-# Playwright MCP
+# Playwright MCP 临时目录
 .playwright-mcp/
-.agents/skills/caps-build/SKILL.md
-AGENTS.md
-_diff.txt
 
-# 动画参数文档
-website/ANIMATIONS.md
+# 本地 AI 协作
+.claude/
+.agents/
+
+
+# 本地临时文件
+_diff.txt
+work/
