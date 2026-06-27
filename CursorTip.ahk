@@ -244,6 +244,7 @@ global tipGuiText := ""
 global settingsGui := ""
 global settingsOpenPos := ""  ; 切语言重建时记忆窗口位置，避免销毁→重建空帧（灰线）
 global settingsSessionLang := ""  ; 打开设置会话时的语言快照，切语言即时预览、取消时据此回滚
+global settingsDraft := ""  ; 切语言重建设置窗口时的控件草稿，ShowSettings 在 Show 前应用，避免选中状态闪烁
 global tipFixedWidth := 0  ; Caps/IME 提示固定宽度（按英文最宽文本测量，0=未测）
 global tipGuiIsFixed := false  ; 当前 tipGui 是否固定宽度模式（决定能否复用窗口避免闪烁）
 
@@ -841,7 +842,7 @@ ClipChanged(dataType) {
 ; 设置窗口
 ; ============================================================
 ShowSettings(*) {
-    global settingsGui, settingsOpenPos, settingsSessionLang
+    global settingsGui, settingsOpenPos, settingsSessionLang, settingsDraft
     ; 防止多开
     if (IsObject(settingsGui)) {
         try {
@@ -964,6 +965,11 @@ ShowSettings(*) {
     ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
     ; 避免淡入期间底下旧窗口的文字透过来形成一瞬间残影
     try DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", g.Hwnd, "Int", 3, "Int*", 1, "Int", 4)
+    ; 切语言重建（settingsDraft 非空）：Show 前先恢复用户草稿，避免「先显示 Config 默认值再跳回草稿」的选中状态闪烁
+    if (IsObject(settingsDraft)) {
+        RestoreSettings(g, settingsDraft)
+        settingsDraft := ""
+    }
     g.Show(showOpts)
     settingsGui := g
 }
@@ -976,11 +982,13 @@ OnLangChange(ctl, *) {
 
 ; 应用当前 Config.language：更新 curLang、重建托盘、重开设置窗口
 ApplyLanguage() {
-    global curLang, settingsGui, settingsOpenPos
+    global curLang, settingsGui, settingsOpenPos, settingsDraft
     curLang := (Config.language = "auto") ? DetectLang() : Config.language
     BuildTrayMenu()
     if (IsObject(settingsGui)) {
         oldGui := settingsGui
+        ; 快照用户已改但未保存的控件值：重建窗口会从 Config 重新初始化，不快照会丢失草稿
+        snap := SnapshotSettings(oldGui)
         ; 记录旧窗口位置：新窗口在同位置覆盖显示后再销毁旧窗口，
         ; 消除「销毁→重建」之间的空帧（即切语言时中间那条灰线）
         try {
@@ -989,12 +997,59 @@ ApplyLanguage() {
         } catch {
         }
         settingsGui := ""   ; 让 ShowSettings 的防多开逻辑放行，能创建新窗口
-        ShowSettings()      ; 新窗口在旧位置显示，完整覆盖旧窗口
+        settingsDraft := snap   ; 草稿经全局变量传入：ShowSettings 在 Show 前应用，避免选中状态先跳默认再跳回的闪烁
+        ShowSettings()      ; 新窗口在旧位置显示，完整覆盖旧窗口（内部已恢复草稿）
         if (IsObject(oldGui))
             oldGui.Destroy()   ; 旧窗口已被新窗口遮挡，销毁无视觉中断
     } else {
         ShowSettings()
     }
+}
+
+; 快照设置窗口所有可编辑控件值（切语言重建窗口时保留用户未保存的草稿；语言除外，由 Config.language 决定）
+SnapshotSettings(g) {
+    return {
+        startup: g.ctl_startup.Value,
+        caps: g.ctl_caps.Value,
+        ime: g.ctl_ime.Value,
+        imeEnabled: g.ctl_ime.Enabled,
+        copy: g.ctl_copy.Value,
+        capsDur: g.ctl_capsDur.Value,
+        copyDur: g.ctl_copyDur.Value,
+        pos1: g.ctl_pos1.Value, pos2: g.ctl_pos2.Value,
+        pos3: g.ctl_pos3.Value, pos4: g.ctl_pos4.Value,
+        mouseOffset: g.ctl_mouseOffset.Value,
+        topOffset: g.ctl_topOffset.Value,
+        bottomOffset: g.ctl_bottomOffset.Value,
+        fontSize: g.ctl_fontSize.Value,
+        bold: g.ctl_bold.Value,
+        themeAuto: g.ctl_themeAuto.Value,
+        lightMode: g.ctl_lightMode.Value,
+        darkMode: g.ctl_darkMode.Value
+    }
+}
+
+; 把快照恢复到新窗口控件
+RestoreSettings(g, s) {
+    g.ctl_startup.Value := s.startup
+    g.ctl_caps.Value := s.caps
+    g.ctl_ime.Value := s.ime
+    g.ctl_ime.Enabled := s.imeEnabled
+    g.ctl_copy.Value := s.copy
+    g.ctl_capsDur.Value := s.capsDur
+    g.ctl_copyDur.Value := s.copyDur
+    g.ctl_pos1.Value := s.pos1
+    g.ctl_pos2.Value := s.pos2
+    g.ctl_pos3.Value := s.pos3
+    g.ctl_pos4.Value := s.pos4
+    g.ctl_mouseOffset.Value := s.mouseOffset
+    g.ctl_topOffset.Value := s.topOffset
+    g.ctl_bottomOffset.Value := s.bottomOffset
+    g.ctl_fontSize.Value := s.fontSize
+    g.ctl_bold.Value := s.bold
+    g.ctl_themeAuto.Value := s.themeAuto
+    g.ctl_lightMode.Value := s.lightMode
+    g.ctl_darkMode.Value := s.darkMode
 }
 
 SettingsClose(ctrlOrGui, *) {
