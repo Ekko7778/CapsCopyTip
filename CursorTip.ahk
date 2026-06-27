@@ -243,6 +243,7 @@ global tipGui := ""
 global tipGuiText := ""
 global settingsGui := ""
 global settingsOpenPos := ""  ; 切语言重建时记忆窗口位置，避免销毁→重建空帧（灰线）
+global settingsSessionLang := ""  ; 打开设置会话时的语言快照，切语言即时预览、取消时据此回滚
 global tipFixedWidth := 0  ; Caps/IME 提示固定宽度（按英文最宽文本测量，0=未测）
 global tipGuiIsFixed := false  ; 当前 tipGui 是否固定宽度模式（决定能否复用窗口避免闪烁）
 
@@ -840,7 +841,7 @@ ClipChanged(dataType) {
 ; 设置窗口
 ; ============================================================
 ShowSettings(*) {
-    global settingsGui, settingsOpenPos
+    global settingsGui, settingsOpenPos, settingsSessionLang
     ; 防止多开
     if (IsObject(settingsGui)) {
         try {
@@ -852,6 +853,10 @@ ShowSettings(*) {
             settingsGui := ""
         }
     }
+
+    ; 记录本次会话开始时的语言（仅首次打开：切语言会重建窗口，此时快照已存在不再覆盖），取消时据此回滚
+    if (settingsSessionLang = "")
+        settingsSessionLang := Config.language
 
     c := Config
     g := Gui(, "CursorTip v" . VERSION)
@@ -963,10 +968,9 @@ ShowSettings(*) {
     settingsGui := g
 }
 
-; 切换语言：保存配置并即时刷新托盘菜单 + 重建设置窗口
+; 切换语言：即时预览（刷新托盘 + 重建设置窗口）。不在此写盘——保存统一走 SettingsSave，取消时由 SettingsClose 回滚
 OnLangChange(ctl, *) {
     Config.language := ["auto", "zh", "en"][ctl.Value]
-    Config.Save()
     ApplyLanguage()
 }
 
@@ -994,9 +998,16 @@ ApplyLanguage() {
 }
 
 SettingsClose(ctrlOrGui, *) {
-    global settingsGui
+    global settingsGui, settingsSessionLang, curLang
     ; Close 事件传入 Gui 对象，按钮点击传入 GuiControl（有 .Gui 属性）
     g := ctrlOrGui.HasProp("Gui") ? ctrlOrGui.Gui : ctrlOrGui
+    ; 取消：语言是即时预览的（OnLangChange 改了 Config.language 但没写盘），回滚到会话开始时的语言
+    if (settingsSessionLang != "" && settingsSessionLang != Config.language) {
+        Config.language := settingsSessionLang
+        curLang := (Config.language = "auto") ? DetectLang() : Config.language
+        BuildTrayMenu()
+    }
+    settingsSessionLang := ""
     g.Destroy()
     settingsGui := ""
 }
@@ -1032,7 +1043,7 @@ SettingsReset(ctrl, *) {
 }
 
 SettingsSave(ctrl, *) {
-    global settingsGui
+    global settingsGui, settingsSessionLang
     g := ctrl.Gui
     c := Config
 
@@ -1072,6 +1083,7 @@ SettingsSave(ctrl, *) {
 
     g.Destroy()
     settingsGui := ""
+    settingsSessionLang := ""
 
     ShowTip(T("msg_saved"), 800)
 }
