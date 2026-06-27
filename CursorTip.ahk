@@ -327,8 +327,13 @@ InitMonitors() {
 }
 
 ApplySettings() {
-    global tipGui, tipGuiText
+    global tipGui, tipGuiText, curLang
     c := Config
+
+    ; 语言也是设置的一部分，在此统一应用：保存后即时刷新 curLang + 托盘菜单
+    ; 覆盖「Reset 恢复默认语言」等不经 OnLangChange 的路径，避免保存后界面语言不刷新
+    curLang := (c.language = "auto") ? DetectLang() : c.language
+    BuildTrayMenu()
 
     ; 大小写监听
     SetTimer(CheckCapsLock, 0)
