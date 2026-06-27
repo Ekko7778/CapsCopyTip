@@ -162,7 +162,7 @@ global L := Map(
         "msg_saved", "设置已保存",
         "err_save_config", "保存配置失败：",
         "err_set_startup", "设置开机启动失败：",
-        "link_about", "关于",
+        "link_about", "了解更多",
         "err_title", "错误"
     ),
     "en", Map(
@@ -206,7 +206,7 @@ global L := Map(
         "msg_saved", "Settings saved",
         "err_save_config", "Failed to save config: ",
         "err_set_startup", "Failed to set startup: ",
-        "link_about", "About",
+        "link_about", "Learn more",
         "err_title", "Error"
     )
 )
@@ -455,9 +455,12 @@ ShowTip(text, duration := 0, fixedWidth := false) {
                 textOpts := "w" . tipFixedWidth . " " . textOpts
             tipGuiText := tipGui.Add("Text", textOpts, text)
 
-            ; Windows 11 圆角
+            ; Windows 11 圆角 + 禁用 DWM 显示过渡动画
+            ; 过渡动画期间窗口从透明淡入，叠在浅色 webview 上会闪过一帧"浅色"，
+            ; 快速切换中英文时表现为深浅色来回闪烁。设置窗口同此处理。
             try {
-                DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)
+                DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 33, "Int*", 2, "Int", 4)  ; 圆角
+                DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", tipGui.Hwnd, "Int", 3, "Int*", 1, "Int", 4)   ; 禁用过渡动画
             }
 
             ; 先在隐藏状态下 AutoSize 取尺寸，再一次性定位显示
@@ -495,16 +498,36 @@ HideTip() {
 ; ============================================================
 ; 输入法检测 — 统一使用 ImmGetConversionStatus
 ; ============================================================
+
+; 取前台线程的「焦点控件」窗口句柄（IME 检测的正确目标）。
+; webview 类容器（Tauri/Edge WebView2/Chrome/Electron）里，顶层前台窗口 ≠ 真正接收
+; IME 输入的子窗口，对顶层窗口查 ImmGetConversionStatus 拿到的状态不随中英切换更新；
+; 必须用 GetGUIThreadInfo 取 hwndFocus 才对。取不到时回退前台窗口（普通 Win32 应用够用）。
+GetFocusHwnd() {
+    hFore := DllCall("user32\GetForegroundWindow", "Ptr")
+    if (!hFore)
+        return 0
+    tid := DllCall("user32\GetWindowThreadProcessId", "Ptr", hFore, "Ptr", 0, "UInt")
+    guiInfo := Buffer(72, 0)
+    NumPut("UInt", 72, guiInfo, 0)
+    if (DllCall("user32\GetGUIThreadInfo", "UInt", tid, "Ptr", guiInfo.Ptr)) {
+        hFocus := NumGet(guiInfo, 16, "Ptr")  ; hwndFocus：x64 下偏移 8+A_PtrSize=16
+        if (hFocus)
+            return hFocus
+    }
+    return hFore
+}
+
 GetIMEStatus(forceRefresh := false) {
     static lastResult := "英"
     static lastCheckTime := 0
     static lastWindowHash := 0
 
-    ; 防抖：150ms 内且同一窗口直接返回上次结果
+    ; 防抖：150ms 内且同一焦点窗口直接返回上次结果
     if (!forceRefresh) {
         if (A_TickCount - lastCheckTime < 150)
             return lastResult
-        hWnd := WinExist("A")
+        hWnd := GetFocusHwnd()
         if (hWnd && hWnd = lastWindowHash)
             return lastResult
     }
@@ -514,7 +537,7 @@ GetIMEStatus(forceRefresh := false) {
     hWnd := 0
 
     try {
-        hWnd := WinExist("A")
+        hWnd := GetFocusHwnd()
         if (!hWnd)
             throw Error()
 
@@ -532,7 +555,7 @@ GetIMEStatus(forceRefresh := false) {
 
     if (result != "") {
         lastResult := result
-        lastWindowHash := WinExist("A")
+        lastWindowHash := hWnd
         FileAppend("CursorTip: IME -> " . result . " (method=" . method . ")`n", "work\debug.log")
     }
 
@@ -924,9 +947,9 @@ ShowSettings(*) {
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    g.Add("Picture", "x20 y557 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip.pages.dev/"))
+    g.Add("Picture", "x20 y557 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y559", '<a href="https://cursortip.pages.dev/">' . T("link_about") . '</a>')
+    g.Add("Link", "x40 y559", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>')
     g.Add("Text", "x200 y559", "© 2026  MIT License")
 
     ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
