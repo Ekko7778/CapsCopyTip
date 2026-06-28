@@ -30,9 +30,9 @@ English | [简体中文](README.md)
 |:--------|:--------|:--------|
 | Caps Lock state | CapsLock toggle / Shift release, independently displayed | 🔒 CAPS / 🔓 caps |
 | IME state | Shown with caps lock indicator | ZH / EN |
-| Copy feedback | Clipboard content changes | Copied: N char(s) / image / N file(s) |
+| Copy feedback | Clipboard content changes | Copied: N char(s) / image / N image(s) / N file(s) |
 
-Tips appear as floating bubbles on screen, can follow the mouse cursor, and auto-dismiss after a few seconds without interrupting your workflow.
+Tips appear as floating bubbles on screen, can follow the mouse cursor, and auto-dismiss after a few seconds without interrupting your workflow. Tips support **light / dark themes** — follow the system automatically or switch manually in Settings.
 
 ## Copy Detection
 
@@ -41,7 +41,10 @@ Tips appear as floating bubbles on screen, can follow the mouse cursor, and auto
 | Text | N chars |
 | Screenshot (Win+Shift+S) | Image |
 | Paint / PS / WeChat copy image | Image |
-| File Explorer copy files | N files |
+| File Explorer copy image files | N images |
+| File Explorer copy other files | N files |
+
+Image files are detected by extension, supporting: `png / jpg / jpeg / gif / bmp / webp / ico / cur / svg / tif / tiff / heic / heif / avif / jfif / jpe / dib`
 
 ## Installation
 
