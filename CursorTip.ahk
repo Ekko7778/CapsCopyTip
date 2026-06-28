@@ -130,6 +130,7 @@ global L := Map(
         "ime_zh", "中",
         "ime_en", "英",
         "copy_files", "已复制：{n} 个文件",
+        "copy_image_files", "已复制：{n} 张图片",
         "copy_image", "已复制：图片",
         "copy_chars", "已复制：{n} 字符",
         "set_features", "功能开关",
@@ -174,6 +175,7 @@ global L := Map(
         "ime_zh", "ZH",
         "ime_en", "EN",
         "copy_files", "Copied: {n} file(s)",
+        "copy_image_files", "Copied: {n} image(s)",
         "copy_image", "Copied: image",
         "copy_chars", "Copied: {n} char(s)",
         "set_features", "Features",
@@ -797,6 +799,14 @@ ShowCapsStatus(forceRefreshIME := false) {
 ; ============================================================
 ; 剪贴板监听
 ; ============================================================
+
+; 判断扩展名是否为常见图片格式（大小写不敏感）
+; 列表前后留空格做单词边界，避免 "jpg" 误匹配 "jpeg" 等子串
+IsImageExt(ext) {
+    static imageExts := " png jpg jpeg gif bmp webp ico cur svg tif tiff heic heif avif jfif jpe dib "
+    return ext != "" && InStr(imageExts, " " . ext . " ", false) > 0
+}
+
 ClipChanged(dataType) {
     global clipboardProcessing
     if (!Config.enableCopyTip || clipboardProcessing)
@@ -822,8 +832,22 @@ ClipChanged(dataType) {
             files := StrSplit(clipText, "`n", "`r")
             count := files.Length
             if (count > 0 && files[1] != "") {
-                FileAppend("CursorTip: Clipboard -> " . count . " file(s)`n", "work\debug.log")
-                ShowTip(T("copy_files", count), Config.copyShowDuration)
+                ; 按扩展名二次判断：全部是图片文件 → 显示"图片"，否则 → 显示"文件"
+                allImages := true
+                for index, f in files {
+                    SplitPath(f, , , &ext)
+                    if (!IsImageExt(ext)) {
+                        allImages := false
+                        break
+                    }
+                }
+                if (allImages) {
+                    FileAppend("CursorTip: Clipboard -> " . count . " image-file(s)`n", "work\debug.log")
+                    ShowTip(T("copy_image_files", count), Config.copyShowDuration)
+                } else {
+                    FileAppend("CursorTip: Clipboard -> " . count . " file(s)`n", "work\debug.log")
+                    ShowTip(T("copy_files", count), Config.copyShowDuration)
+                }
             }
         } else if (isImage) {
             FileAppend("CursorTip: Clipboard -> image`n", "work\debug.log")
