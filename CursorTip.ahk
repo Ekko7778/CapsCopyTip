@@ -347,12 +347,8 @@ ApplySettings() {
     if (c.enableCopyTip)
         OnClipboardChange(ClipChanged)
 
-    ; 销毁提示窗口以应用新外观
-    if (IsObject(tipGui)) {
-        tipGui.Destroy()
-        tipGui := ""
-        tipGuiText := ""
-    }
+    ; 销毁提示窗口以应用新外观（复用 DestroyTipGui，与预览共用同一销毁逻辑）
+    DestroyTipGui()
 
     ; 字号/主题/语言可能变化，重测固定宽度
     MeasureTipFixedWidth()
@@ -402,6 +398,17 @@ MeasureTipFixedWidth() {
     t.GetPos(,, &tw, &th)
     g.Destroy()
     tipFixedWidth := tw
+}
+
+; 销毁当前 tip 窗口并清状态：预览/ApplySettings 调用，强制下次 ShowTip 走重建分支以应用新外观
+DestroyTipGui() {
+    global tipGui, tipGuiText, tipGuiIsFixed
+    if (IsObject(tipGui)) {
+        try tipGui.Destroy()
+        tipGui := ""
+        tipGuiText := ""
+        tipGuiIsFixed := false
+    }
 }
 
 ; 按 tipPosition 把 tipGui 定位显示（gw/gh 为当前窗口尺寸）；NA=不抢焦点
@@ -871,7 +878,7 @@ ClipChanged(dataType) {
 ; 设置窗口
 ; ============================================================
 ShowSettings(*) {
-    global settingsGui, settingsOpenPos, settingsSessionLang, settingsDraft
+    global settingsGui, settingsOpenPos, settingsSessionLang, settingsDraft, settingsConfigSnap
     ; 防止多开
     if (IsObject(settingsGui)) {
         try {
@@ -884,9 +891,11 @@ ShowSettings(*) {
         }
     }
 
-    ; 记录本次会话开始时的语言（仅首次打开：切语言会重建窗口，此时快照已存在不再覆盖），取消时据此回滚
-    if (settingsSessionLang = "")
+    ; 记录本次会话开始时的语言和视觉属性（仅首次打开：切语言会重建窗口，此时快照已存在不再覆盖），取消时据此回滚
+    if (settingsSessionLang = "") {
         settingsSessionLang := Config.language
+        settingsConfigSnap := SnapshotConfig()   ; 视觉属性快照，取消预览时回滚
+    }
 
     c := Config
     g := Gui(, "CursorTip v" . VERSION)
@@ -964,6 +973,22 @@ ShowSettings(*) {
     g.ctl_fontSize := g.Add("Edit", "x95 y441 w40 h22 Number", c.tipFontSize)
     g.ctl_bold := g.Add("CheckBox", "x200 y444 w60", T("set_bold"))
     g.ctl_bold.Value := c.tipFontBold
+
+    ; === 实时预览：视觉控件改动立即按未保存设置显示 tip，不写盘（保存才落定，取消回滚）===
+    g.ctl_pos1.OnEvent("Click", MakePreviewCb("pos"))
+    g.ctl_pos2.OnEvent("Click", MakePreviewCb("pos"))
+    g.ctl_pos3.OnEvent("Click", MakePreviewCb("pos"))
+    g.ctl_pos4.OnEvent("Click", MakePreviewCb("pos"))
+    g.ctl_mouseOffset.OnEvent("Change", MakePreviewCb("mouseOffset"))
+    g.ctl_topOffset.OnEvent("Change", MakePreviewCb("topOffset"))
+    g.ctl_bottomOffset.OnEvent("Change", MakePreviewCb("bottomOffset"))
+    g.ctl_fontSize.OnEvent("Change", MakePreviewCb("fontSize"))
+    g.ctl_bold.OnEvent("Click", MakePreviewCb("bold"))
+    g.ctl_themeAuto.OnEvent("Click", MakePreviewCb("theme"))
+    g.ctl_lightMode.OnEvent("Click", MakePreviewCb("theme"))
+    g.ctl_darkMode.OnEvent("Click", MakePreviewCb("theme"))
+    g.ctl_capsDur.OnEvent("Change", MakePreviewCb("capsDur"))
+    g.ctl_copyDur.OnEvent("Change", MakePreviewCb("copyDur"))
 
     ; === 语言 ===
     g.Add("Text", "x20 y474 w80", T("set_language"))
@@ -1081,17 +1106,116 @@ RestoreSettings(g, s) {
     g.ctl_darkMode.Value := s.darkMode
 }
 
+; 快照/恢复 Config 的视觉属性（取消预览时回滚用）
+; 不含 language（已由 settingsSessionLang 管）、不含功能开关（不预览，取消时本就未改 Config）
+SnapshotConfig() {
+    c := Config
+    return {
+        tipPosition:      c.tipPosition,
+        tipMouseOffset:   c.tipMouseOffset,
+        tipTopOffset:     c.tipTopOffset,
+        tipBottomOffset:  c.tipBottomOffset,
+        tipFontSize:      c.tipFontSize,
+        tipFontBold:      c.tipFontBold,
+        tipLightMode:     c.tipLightMode,
+        capsShowDuration: c.capsShowDuration,
+        copyShowDuration: c.copyShowDuration
+    }
+}
+
+RestoreConfig(snap) {
+    c := Config
+    c.tipPosition      := snap.tipPosition
+    c.tipMouseOffset   := snap.tipMouseOffset
+    c.tipTopOffset     := snap.tipTopOffset
+    c.tipBottomOffset  := snap.tipBottomOffset
+    c.tipFontSize      := snap.tipFontSize
+    c.tipFontBold      := snap.tipFontBold
+    c.tipLightMode     := snap.tipLightMode
+    c.capsShowDuration := snap.capsShowDuration
+    c.copyShowDuration := snap.copyShowDuration
+}
+
+; 数值裁剪到 [lo, hi]，空值/非法用 default（复刻 SettingsSave 的范围保护，保证预览与保存一致）
+ClampNum(raw, lo, hi, default) {
+    return Max(lo, Min(hi, Integer(raw || default)))
+}
+
+; 预览 tip 文本：caps + IME 风格（固定宽度，覆盖 ShowTip 复用+重建两条渲染路径）
+GetPreviewText() {
+    return T("caps_on") . " | " . T("ime_zh")
+}
+
+; 用闭包把控件 kind 绑进回调，避免脆弱的控件名/标题匹配
+MakePreviewCb(kind) {
+    return (ctl, *) => OnPreviewChange(ctl, kind)
+}
+
+; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测宽度 → 销毁旧 tip → 显示预览 tip
+OnPreviewChange(ctl, kind) {
+    g := ctl.Gui
+    c := Config
+    needMeasure := false   ; 只有字号/粗细变化才需重测 tipFixedWidth
+
+    switch kind {
+        case "pos":                           ; pos1→1(鼠标) pos2→3(顶部) pos3→4(底部) pos4→2(中央)
+            c.tipPosition := g.ctl_pos1.Value ? 1 : (g.ctl_pos2.Value ? 3 : (g.ctl_pos3.Value ? 4 : 2))
+        case "mouseOffset":  c.tipMouseOffset  := ClampNum(g.ctl_mouseOffset.Value,  0, 100, 20)
+        case "topOffset":    c.tipTopOffset    := ClampNum(g.ctl_topOffset.Value,    0, 500, 50)
+        case "bottomOffset": c.tipBottomOffset := ClampNum(g.ctl_bottomOffset.Value, 0, 500, 100)
+        case "fontSize":
+            c.tipFontSize := ClampNum(g.ctl_fontSize.Value, 8, 72, 9)
+            needMeasure := true
+        case "bold":
+            c.tipFontBold := g.ctl_bold.Value
+            needMeasure := true
+        case "theme":
+            c.tipLightMode := g.ctl_themeAuto.Value ? "auto" : (g.ctl_lightMode.Value ? "light" : "dark")
+        case "capsDur": c.capsShowDuration := ClampNum(g.ctl_capsDur.Value, 100, 99999, 800)
+        case "copyDur": c.copyShowDuration := ClampNum(g.ctl_copyDur.Value, 100, 99999, 800)
+    }
+
+    ; 任何外观/位置变化都要先销毁旧窗口：ShowTip 固定宽度复用路径只改文本，不销毁会沿用旧字号/背景色
+    DestroyTipGui()
+    if (needMeasure)
+        MeasureTipFixedWidth()
+
+    ShowTip(GetPreviewText(), c.capsShowDuration, true)
+}
+
 SettingsClose(ctrlOrGui, *) {
-    global settingsGui, settingsSessionLang, curLang
+    global settingsGui, settingsSessionLang, settingsConfigSnap, curLang
     ; Close 事件传入 Gui 对象，按钮点击传入 GuiControl（有 .Gui 属性）
     g := ctrlOrGui.HasProp("Gui") ? ctrlOrGui.Gui : ctrlOrGui
-    ; 取消：语言是即时预览的（OnLangChange 改了 Config.language 但没写盘），回滚到会话开始时的语言
+    changed := false
+
+    ; 视觉属性是即时预览的（OnPreviewChange 改了 Config 内存但没写盘），回滚到会话开始时的值
+    if (IsObject(settingsConfigSnap)) {
+        snap := settingsConfigSnap, c := Config
+        if (c.tipPosition != snap.tipPosition || c.tipMouseOffset != snap.tipMouseOffset
+            || c.tipTopOffset != snap.tipTopOffset || c.tipBottomOffset != snap.tipBottomOffset
+            || c.tipFontSize != snap.tipFontSize || c.tipFontBold != snap.tipFontBold
+            || c.tipLightMode != snap.tipLightMode
+            || c.capsShowDuration != snap.capsShowDuration || c.copyShowDuration != snap.copyShowDuration) {
+            RestoreConfig(snap)
+            changed := true
+        }
+        settingsConfigSnap := ""
+    }
+
+    ; 语言是即时预览的（OnLangChange 改了 Config.language 但没写盘），回滚到会话开始时的语言
     if (settingsSessionLang != "" && settingsSessionLang != Config.language) {
         Config.language := settingsSessionLang
         curLang := (Config.language = "auto") ? DetectLang() : Config.language
         BuildTrayMenu()
+        changed := true
     }
     settingsSessionLang := ""
+
+    ; 有任何回滚才统一清理：销毁残留预览 tip + 重测宽度 + 刷语言/定时器（ApplySettings 副作用在取消场景安全）
+    if (changed)
+        ApplySettings()
+
     g.Destroy()
     settingsGui := ""
 }
@@ -1168,6 +1292,7 @@ SettingsSave(ctrl, *) {
     g.Destroy()
     settingsGui := ""
     settingsSessionLang := ""
+    settingsConfigSnap := ""
 
     ShowTip(T("msg_saved"), 800)
 }
