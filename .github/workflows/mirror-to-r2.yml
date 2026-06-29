@@ -14,6 +14,9 @@ name: Mirror release assets to R2
 # 所需 secrets（仓库 Settings → Secrets and variables → Actions）：
 #   R2_ACCESS_KEY_ID
 #   R2_SECRET_ACCESS_KEY
+#
+# 安全注意：tag 走 env 注入 + 白名单正则校验，避免 shell 注入与 S3 key 路径逃逸。
+# AWS CLI installer 从 AWS 官方下载，但未做 GPG 签名校验（权衡：维护成本 vs 攻击面）。
 
 on:
   release:
@@ -32,19 +35,28 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     steps:
-      - name: Determine release tag
+      - name: Determine and validate release tag
         id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "value=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "release" ]; then
+            TAG="$RELEASE_TAG"
           else
-            INPUT_TAG="${{ inputs.tag }}"
-            if [ -z "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+            if [ -z "$TAG" ]; then
               echo "::error::workflow_dispatch 模式需要指定 inputs.tag"
               exit 1
             fi
-            echo "value=$INPUT_TAG" >> "$GITHUB_OUTPUT"
           fi
+          # 白名单校验：拒绝任何含特殊字符的 tag（防 shell 注入 + 防 S3 key 逃逸）
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::非法 tag: '$TAG'（必须匹配 ^vX.Y.Z(-预发布标识)?$）"
+            exit 1
+          fi
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Install AWS CLI
         run: |
