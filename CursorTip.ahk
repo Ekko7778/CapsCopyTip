@@ -163,7 +163,7 @@ global L := Map(
         "msg_saved", "设置已保存",
         "err_save_config", "保存配置失败：",
         "err_set_startup", "设置开机启动失败：",
-        "link_about", "了解更多",
+        "link_about", "检查更新",
         "err_title", "错误"
     ),
     "en", Map(
@@ -208,7 +208,7 @@ global L := Map(
         "msg_saved", "Settings saved",
         "err_save_config", "Failed to save config: ",
         "err_set_startup", "Failed to set startup: ",
-        "link_about", "Learn more",
+        "link_about", "Check for updates",
         "err_title", "Error"
     )
 )
