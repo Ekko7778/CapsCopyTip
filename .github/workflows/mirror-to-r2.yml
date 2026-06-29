@@ -85,39 +85,32 @@ jobs:
           R2_ENDPOINT: https://ee5123663792160a81b4940b1e6a612c.r2.cloudflarestorage.com
           TAG: ${{ steps.tag.outputs.value }}
         run: |
-          # 拉取已有 manifest（不存在则空对象）
+          # 1) 拉取已有 manifest（首次/被删 → 404，按空对象处理）
           aws s3 cp "s3://space/cursortip/manifest.json" /tmp/manifest.json \
-            --endpoint-url "$R2_ENDPOINT" --only-show-errors 2>/dev/null || echo '{}' > /tmp/manifest.json
+            --endpoint-url "$R2_ENDPOINT" --only-show-errors 2>/dev/null \
+            || echo '{}' > /tmp/manifest.json
 
-          # 列出本次新上传的 assets
-          ASSETS=$(ls /tmp/assets | sort | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
+          # 2) 列出本次新上传的 assets 名称（写文件后给 Python 读，避免 heredoc 嵌套坑）
+          ( ls /tmp/assets | sort | grep -v '^$' ) > /tmp/assets.list
 
-          # 合并：同 tag 整组替换（不追加），更新 updated_at
-          python3 - <<PY
-          import json, datetime, pathlib
-          m = json.loads(pathlib.Path("/tmp/manifest.json").read_text() or "{}")
+          # 3) Python 合并：同 tag 整组替换（不追加），更新 updated_at
+          TAG="$TAG" python3 - <<'PY'
+          import json, datetime, os, pathlib
+          tag = os.environ["TAG"]
+          manifest_path = pathlib.Path("/tmp/manifest.json")
+          try:
+              m = json.loads(manifest_path.read_text() or "{}")
+          except json.JSONDecodeError:
+              m = {}
           m.setdefault("updated_at", "")
           m.setdefault("mirrored", {})
-          with open("/tmp/assets.list") as f:
-              assets = json.load(f)
-          m["mirrored"]["$TAG"] = assets
+          assets = [line.strip() for line in pathlib.Path("/tmp/assets.list").read_text().splitlines() if line.strip()]
+          m["mirrored"][tag] = assets
           m["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          pathlib.Path("/tmp/manifest.json").write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+          manifest_path.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
           PY
 
-          echo "$ASSETS" > /tmp/assets.list
-          python3 - <<PY
-          import json, datetime, pathlib
-          m = json.loads(pathlib.Path("/tmp/manifest.json").read_text() or "{}")
-          m.setdefault("updated_at", "")
-          m.setdefault("mirrored", {})
-          with open("/tmp/assets.list") as f:
-              assets = json.load(f)
-          m["mirrored"]["$TAG"] = assets
-          m["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-          pathlib.Path("/tmp/manifest.json").write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
-          PY
-
+          # 4) 把合并后的 manifest 推回 R2（缓存策略 no-cache → 网站 fetch 能拿到最新）
           aws s3 cp /tmp/manifest.json "s3://space/cursortip/manifest.json" \
             --endpoint-url "$R2_ENDPOINT" \
             --content-type "application/json" \
