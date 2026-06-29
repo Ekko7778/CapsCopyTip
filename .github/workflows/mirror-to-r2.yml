@@ -16,7 +16,7 @@ name: Mirror release assets to R2
 #   R2_SECRET_ACCESS_KEY
 #
 # 安全注意：tag 走 env 注入 + 白名单正则校验，避免 shell 注入与 S3 key 路径逃逸。
-# AWS CLI installer 从 AWS 官方下载，但未做 GPG 签名校验（权衡：维护成本 vs 攻击面）。
+# AWS CLI 直接用 runner 预装版本（ubuntu-latest 自带），无需安装。
 
 on:
   release:
@@ -57,13 +57,6 @@ jobs:
             exit 1
           fi
           echo "value=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Install AWS CLI
-        run: |
-          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -q /tmp/awscliv2.zip -d /tmp/
-          sudo /tmp/aws/install --update
-          rm -rf /tmp/aws /tmp/awscliv2.zip
 
       - name: Download release assets
         env:
