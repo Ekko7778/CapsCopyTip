@@ -10,7 +10,7 @@
 
 [![Release](https://img.shields.io/github/v/release/zeno528/CursorTip?style=flat&logo=github&labelColor=1e293b&color=3b82f6)](https://github.com/zeno528/CursorTip/releases)
 [![License](https://img.shields.io/github/license/zeno528/CursorTip?style=flat&labelColor=1e293b&color=3e82f6)](LICENSE)
-[![Website](https://img.shields.io/badge/Website-cursortip-website.pages.dev-8b5cf6?style=flat&logo=cloudflare-pages&labelColor=1e293b)](https://cursortip-website.pages.dev/)
+[![Website](https://img.shields.io/badge/Website-cursortip--website.pages.dev-8b5cf6?style=flat&logo=cloudflare-pages&labelColor=1e293b)](https://cursortip-website.pages.dev/)
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat&logo=autohotkey&labelColor=1e293b&color=4a5568)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat&logo=windows&labelColor=1e293b)](https://github.com/zeno528/CursorTip)
 
@@ -30,7 +30,7 @@
 |:-----|:---------|:---------|
 | 大小写状态 | CapsLock 切换 / Shift 释放 ，可独立显示| 🔒 大写 / 🔓 小写 |
 | 输入法状态 | 随大小写提示一同显示 | 中 / 英 |
-| 复制反馈 | 剪贴板内容变化 | 已复制：N 字符 / 图片 / N 张图片 / N 个文件 |
+| 复制反馈 | 剪贴板内容变化 | 已复制：N 字符 / N 图片 / N 文件 |
 
 提示以浮动气泡形式出现在屏幕上，可跟随鼠标位置，自动消失，不打断当前操作。提示外观支持 **浅色 / 深色主题**，可跟随系统自动切换，也能在设置里手动选择。
 
@@ -39,10 +39,8 @@
 | 复制方式 | 检测结果 |
 |:---------|:---------|
 | 文本 | N 字符 |
-| 截图 (Win+Shift+S) | 图片 |
-| 画图 / PS / 微信复制图片 | 图片 |
-| 文件管理器复制图片文件 | N 张图片 |
-| 文件管理器复制其他文件 | N 个文件 |
+| 图片文件 | N 张图片 |
+| 其他文件 | N 个文件 |
 
 复制图片文件时按扩展名识别，支持：`png / jpg / jpeg / gif / bmp / webp / ico / cur / svg / tif / tiff / heic / heif / avif / jfif / jpe / dib`
 

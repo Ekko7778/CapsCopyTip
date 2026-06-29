@@ -10,7 +10,7 @@ Displays real-time caps lock + IME state and clipboard operation feedback on scr
 
 [![Release](https://img.shields.io/github/v/release/zeno528/CursorTip?style=flat&logo=github&labelColor=1e293b&color=3b82f6)](https://github.com/zeno528/CursorTip/releases)
 [![License](https://img.shields.io/github/license/zeno528/CursorTip?style=flat&labelColor=1e293b&color=3b82f6)](LICENSE)
-[![Website](https://img.shields.io/badge/Website-cursortip-website.pages.dev-8b5cf6?style=flat&logo=cloudflare-pages&labelColor=1e293b)](https://cursortip-website.pages.dev/)
+[![Website](https://img.shields.io/badge/Website-cursortip--website.pages.dev-8b5cf6?style=flat&logo=cloudflare-pages&labelColor=1e293b)](https://cursortip-website.pages.dev/)
 [![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2-334455?style=flat&logo=autohotkey&labelColor=1e293b&color=4a5568)](https://www.autohotkey.com/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat&logo=windows&labelColor=1e293b)](https://github.com/zeno528/CursorTip)
 
@@ -30,7 +30,7 @@ English | [简体中文](README.md)
 |:--------|:--------|:--------|
 | Caps Lock state | CapsLock toggle / Shift release, independently displayed | 🔒 CAPS / 🔓 caps |
 | IME state | Shown with caps lock indicator | ZH / EN |
-| Copy feedback | Clipboard content changes | Copied: N char(s) / image / N image(s) / N file(s) |
+| Copy feedback | Clipboard content changes | Copied: N char(s) / N image(s) / N file(s) |
 
 Tips appear as floating bubbles on screen, can follow the mouse cursor, and auto-dismiss after a few seconds without interrupting your workflow. Tips support **light / dark themes** — follow the system automatically or switch manually in Settings.
 
@@ -39,10 +39,8 @@ Tips appear as floating bubbles on screen, can follow the mouse cursor, and auto
 | Copy Method | Detection Result |
 |:------------|:-----------------|
 | Text | N chars |
-| Screenshot (Win+Shift+S) | Image |
-| Paint / PS / WeChat copy image | Image |
-| File Explorer copy image files | N images |
-| File Explorer copy other files | N files |
+| Image files | N images |
+| Other files | N files |
 
 Image files are detected by extension, supporting: `png / jpg / jpeg / gif / bmp / webp / ico / cur / svg / tif / tiff / heic / heif / avif / jfif / jpe / dib`
 
