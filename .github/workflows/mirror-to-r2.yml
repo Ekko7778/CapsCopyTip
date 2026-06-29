@@ -1,0 +1,128 @@
+name: Mirror release assets to R2
+
+# 把每个 release 的资源同步到 Cloudflare R2 桶 `space`，
+# 让 zeno528/CursorTip-Website 站能优先从 R2 下载（兜底 GitHub 直链）。
+#
+# 触发：
+#   - release: published（开发者发布正式 release 时自动跑）
+#   - workflow_dispatch（手动补传旧版本时用）
+#
+# 桶内布局：
+#   cursortip/{tag}/{assetName}                  — 资源本体
+#   cursortip/manifest.json                      - 已镜像版本清单（被网站读取）
+#
+# 所需 secrets（仓库 Settings → Secrets and variables → Actions）：
+#   R2_ACCESS_KEY_ID
+#   R2_SECRET_ACCESS_KEY
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要补传的 tag（workflow_dispatch 模式必填，如 v1.0.1）'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "value=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            INPUT_TAG="${{ inputs.tag }}"
+            if [ -z "$INPUT_TAG" ]; then
+              echo "::error::workflow_dispatch 模式需要指定 inputs.tag"
+              exit 1
+            fi
+            echo "value=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install AWS CLI
+        run: |
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp/
+          sudo /tmp/aws/install --update
+          rm -rf /tmp/aws /tmp/awscliv2.zip
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          mkdir -p /tmp/assets
+          gh release download "$TAG" --dir /tmp/assets --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Upload assets to R2 (同 tag 自动覆盖)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: https://ee5123663792160a81b4940b1e6a612c.r2.cloudflarestorage.com
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          shopt -s nullglob
+          for f in /tmp/assets/*; do
+            name="$(basename "$f")"
+            echo "→ cursortip/${TAG}/${name}"
+            aws s3 cp "$f" "s3://space/cursortip/${TAG}/${name}" \
+              --endpoint-url "$R2_ENDPOINT" \
+              --content-type "application/zip" \
+              --only-show-errors
+          done
+
+      - name: Update R2 manifest (幂等：同 tag 整组替换)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: https://ee5123663792160a81b4940b1e6a612c.r2.cloudflarestorage.com
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          # 拉取已有 manifest（不存在则空对象）
+          aws s3 cp "s3://space/cursortip/manifest.json" /tmp/manifest.json \
+            --endpoint-url "$R2_ENDPOINT" --only-show-errors 2>/dev/null || echo '{}' > /tmp/manifest.json
+
+          # 列出本次新上传的 assets
+          ASSETS=$(ls /tmp/assets | sort | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
+
+          # 合并：同 tag 整组替换（不追加），更新 updated_at
+          python3 - <<PY
+          import json, datetime, pathlib
+          m = json.loads(pathlib.Path("/tmp/manifest.json").read_text() or "{}")
+          m.setdefault("updated_at", "")
+          m.setdefault("mirrored", {})
+          with open("/tmp/assets.list") as f:
+              assets = json.load(f)
+          m["mirrored"]["$TAG"] = assets
+          m["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          pathlib.Path("/tmp/manifest.json").write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+          PY
+
+          echo "$ASSETS" > /tmp/assets.list
+          python3 - <<PY
+          import json, datetime, pathlib
+          m = json.loads(pathlib.Path("/tmp/manifest.json").read_text() or "{}")
+          m.setdefault("updated_at", "")
+          m.setdefault("mirrored", {})
+          with open("/tmp/assets.list") as f:
+              assets = json.load(f)
+          m["mirrored"]["$TAG"] = assets
+          m["updated_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          pathlib.Path("/tmp/manifest.json").write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+          PY
+
+          aws s3 cp /tmp/manifest.json "s3://space/cursortip/manifest.json" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --content-type "application/json" \
+            --cache-control "no-cache" \
+            --only-show-errors
+
+          echo "✓ manifest 已更新"
+          cat /tmp/manifest.json
