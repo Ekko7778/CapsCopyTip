@@ -1,3 +1,5 @@
+
+
 <div align="center">
 
 <img src="assets/logo.png" alt="CursorTip" width="128" height="128">
@@ -47,7 +49,7 @@
 ## 安装
 
 1. 前往 [Releases](https://github.com/zeno528/CursorTip/releases) 下载最新版 `CursorTip_vX.X.X.zip`
-2. 双击运行，无需安装 AutoHotkey
+2. 解压后双击运行 `CursorTip.exe`，无需安装 AutoHotkey
 
 ### 开机自启
 
