@@ -47,7 +47,7 @@
 ## 安装
 
 1. 前往 [Releases](https://github.com/zeno528/CursorTip/releases) 下载最新版 `CursorTip_vX.X.X.zip`
-2. 双击运行，无需安装 AutoHotkey
+2. 解压后双击运行 `CursorTip.exe`，无需安装 AutoHotkey
 
 ### 开机自启
 
@@ -86,3 +86,12 @@ CursorTip/
 ## 许可证
 
 [MIT](LICENSE)
+
+## 社区
+
+欢迎任何形式的参与 🎉
+
+- 🐛 遇到问题？提个 [Issue](https://github.com/zeno528/CursorTip/issues/new)
+- 💡 有改进想法？提 [Issue](https://github.com/zeno528/CursorTip/issues/new) 聊聊，或直接开 [PR](https://github.com/zeno528/CursorTip/pulls)
+- ⭐ 觉得好用？点个 Star 支持一下
+
