@@ -32,7 +32,10 @@ jobs:
         shell: pwsh
         run: |
           $setup = Join-Path $env:RUNNER_TEMP 'ahk-setup.exe'
-          curl.exe -sL 'https://www.autohotkey.com/download/ahk-v2.exe' -o $setup
+          curl.exe -sL 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.27/AutoHotkey_2.0.27_setup.exe' -o $setup
+          $size = (Get-Item $setup).Length
+          "downloaded: $size bytes"
+          if ($size -lt 1MB) { Write-Error '::error::安装包下载不完整，疑似被拦截'; exit 1 }
           $p = Start-Process -FilePath $setup -ArgumentList '/S' -Wait -PassThru
           "installer exit: $($p.ExitCode)"
           if (-not (Test-Path 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe')) {
