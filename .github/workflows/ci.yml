@@ -28,20 +28,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 安装 AutoHotkey v2（官方安装包静默安装，自带 Ahk2Exe）
+      - name: 安装 AutoHotkey v2（choco，含 Compiler\Ahk2Exe.exe）
         shell: pwsh
         run: |
-          $setup = Join-Path $env:RUNNER_TEMP 'ahk-setup.exe'
-          curl.exe -sL 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.27/AutoHotkey_2.0.27_setup.exe' -o $setup
-          $size = (Get-Item $setup).Length
-          "downloaded: $size bytes"
-          if ($size -lt 1MB) { Write-Error '::error::安装包下载不完整，疑似被拦截'; exit 1 }
-          $p = Start-Process -FilePath $setup -ArgumentList '/S' -Wait -PassThru
-          "installer exit: $($p.ExitCode)"
-          if (-not (Test-Path 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe')) {
-            Write-Error '::error::Ahk2Exe 安装失败'
+          choco install autohotkey -y --no-progress
+          $ahk2exe = 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe'
+          $base = 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe'
+          if (-not (Test-Path $ahk2exe) -or -not (Test-Path $base)) {
+            Write-Error '::error::choco 安装后未找到 Ahk2Exe / AutoHotkey64'
             exit 1
           }
+          "AHK v2 就绪: $ahk2exe"
 
       - name: Ahk2Exe 全脚本语法编译检查
         shell: pwsh
