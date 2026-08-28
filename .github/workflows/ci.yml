@@ -1,0 +1,54 @@
+# CursorTip 语法守门：CursorTip.ahk 变更时跑 Ahk2Exe 全脚本编译检查
+# 项目无测试 / 无 Linter，「能编译」就是唯一的自动验证手段（对应本地 CLAUDE.md 的 Ahk2Exe /silent 检查）
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'CursorTip.ahk'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'CursorTip.ahk'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  syntax-check:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 安装 AutoHotkey v2（官方安装包静默安装，自带 Ahk2Exe）
+        shell: pwsh
+        run: |
+          $setup = Join-Path $env:RUNNER_TEMP 'ahk-setup.exe'
+          curl.exe -sL 'https://www.autohotkey.com/download/ahk-v2.exe' -o $setup
+          $p = Start-Process -FilePath $setup -ArgumentList '/S' -Wait -PassThru
+          "installer exit: $($p.ExitCode)"
+          if (-not (Test-Path 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe')) {
+            Write-Error '::error::Ahk2Exe 安装失败'
+            exit 1
+          }
+
+      - name: Ahk2Exe 全脚本语法编译检查
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP '_check.exe'
+          $p = Start-Process -FilePath 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe' -ArgumentList '/silent', '/in', 'CursorTip.ahk', '/out', $out, '/base', 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe' -Wait -PassThru
+          "Ahk2Exe exit: $($p.ExitCode)"
+          if (-not (Test-Path $out)) {
+            Write-Error '::error::未产出 exe —— CursorTip.ahk 存在语法错误'
+            exit 1
+          }
+          "语法编译检查通过"
+          Remove-Item $out -Force

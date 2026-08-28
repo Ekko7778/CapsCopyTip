@@ -1,0 +1,97 @@
+# CursorTip 发行构建：推 v* tag 时编译并创建 GitHub Release
+# 触发条件设计：
+#   1. push tags 'v*'  —— 唯一发布入口。tag = 显式的发行意图，与本地「bump 独立提交 + 打 tag」流程无缝衔接
+#   2. workflow_dispatch —— 手动补构建（只产 artifact，不创建 Release，不会污染版本线）
+# 注意：不监听 main push（违背「编译=发版、需确认」流程）；不解析 bump commit 文案（脆弱，tag 已承担此职责）
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 读取脚本版本号（单一真源：CursorTip.ahk 的 VERSION 行）
+        shell: pwsh
+        run: |
+          $m = Select-String -Path 'CursorTip.ahk' -Pattern 'global VERSION := "(\d+\.\d+\.\d+)"'
+          if (-not $m) {
+            Write-Error '::error::CursorTip.ahk 里找不到 VERSION 行'
+            exit 1
+          }
+          $ver = $m.Matches[0].Groups[1].Value
+          "VERSION=$ver" >> $env:GITHUB_ENV
+          "脚本版本号: $ver"
+
+      - name: 校验 tag 与 VERSION 一致
+        if: ${{ github.event_name == 'push' }}
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($tag -ne $env:VERSION) {
+            Write-Error "::error::tag v$tag 与 CursorTip.ahk 内 VERSION $($env:VERSION) 不一致 —— 修齐后再打 tag"
+            exit 1
+          }
+          "tag 与版本号一致: v$tag"
+
+      - name: 安装 AutoHotkey v2（官方安装包静默安装，自带 Ahk2Exe）
+        shell: pwsh
+        run: |
+          $setup = Join-Path $env:RUNNER_TEMP 'ahk-setup.exe'
+          curl.exe -sL 'https://www.autohotkey.com/download/ahk-v2.exe' -o $setup
+          $p = Start-Process -FilePath $setup -ArgumentList '/S' -Wait -PassThru
+          "installer exit: $($p.ExitCode)"
+          if (-not (Test-Path 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe')) {
+            Write-Error '::error::Ahk2Exe 安装失败'
+            exit 1
+          }
+
+      - name: 编译
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $exe = Join-Path (Get-Location) "dist\CursorTip_v$env:VERSION.exe"
+          $p = Start-Process -FilePath 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe' -ArgumentList '/silent', '/in', 'CursorTip.ahk', '/out', $exe, '/base', 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe' -Wait -PassThru
+          "Ahk2Exe exit: $($p.ExitCode)"
+          if (-not (Test-Path $exe)) {
+            Write-Error '::error::编译失败，未产出 exe'
+            exit 1
+          }
+          "编译产物: $exe ($((Get-Item $exe).Length) bytes)"
+
+      - name: 打包 zip（exe + LICENSE）
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist\CursorTip_v$env:VERSION.exe", 'LICENSE' -DestinationPath "dist\CursorTip_v$env:VERSION.zip" -Force
+          "打包完成: dist\CursorTip_v$env:VERSION.zip"
+
+      - name: 发布 GitHub Release
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" --title "CursorTip $env:GITHUB_REF_NAME" --generate-notes "dist\CursorTip_v$env:VERSION.exe" "dist\CursorTip_v$env:VERSION.zip"
+          "已发布 Release $env:GITHUB_REF_NAME"
+
+      - name: 上传构建产物（仅手动触发：只产 artifact，不建 Release）
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CursorTip_v${{ env.VERSION }}
+          path: dist/CursorTip_v*
