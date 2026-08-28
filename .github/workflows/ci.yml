@@ -28,23 +28,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 安装 AutoHotkey v2（choco，含 Compiler\Ahk2Exe.exe）
+      - name: 安装 AutoHotkey v2（choco）并递归定位 Ahk2Exe
         shell: pwsh
         run: |
           choco install autohotkey -y --no-progress
-          $ahk2exe = 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe'
-          $base = 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe'
-          if (-not (Test-Path $ahk2exe) -or -not (Test-Path $base)) {
-            Write-Error '::error::choco 安装后未找到 Ahk2Exe / AutoHotkey64'
-            exit 1
-          }
-          "AHK v2 就绪: $ahk2exe"
+          $roots = @('C:\Program Files\AutoHotkey', 'C:\Program Files (x86)\AutoHotkey', "$env:LocalAppData\Programs\AutoHotkey")
+          $ahk2exe = Get-ChildItem -Path $roots -Recurse -Filter 'Ahk2Exe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          $base = Get-ChildItem -Path $roots -Recurse -Filter 'AutoHotkey64.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          "ahk2exe: $ahk2exe"
+          "base: $base"
+          if (-not $ahk2exe -or -not $base) { Write-Error '::error::未找到 Ahk2Exe.exe / AutoHotkey64.exe'; exit 1 }
+          "AHK2EXE=$ahk2exe" >> $env:GITHUB_ENV
+          "AHKBASE=$base" >> $env:GITHUB_ENV
 
       - name: Ahk2Exe 全脚本语法编译检查
         shell: pwsh
         run: |
           $out = Join-Path $env:RUNNER_TEMP '_check.exe'
-          $p = Start-Process -FilePath 'C:\Program Files\AutoHotkey\v2\Compiler\Ahk2Exe.exe' -ArgumentList '/silent', '/in', 'CursorTip.ahk', '/out', $out, '/base', 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe' -Wait -PassThru
+          $p = Start-Process -FilePath $env:AHK2EXE -ArgumentList '/silent', '/in', 'CursorTip.ahk', '/out', $out, '/base', $env:AHKBASE -Wait -PassThru
           "Ahk2Exe exit: $($p.ExitCode)"
           if (-not (Test-Path $out)) {
             Write-Error '::error::未产出 exe —— CursorTip.ahk 存在语法错误'
