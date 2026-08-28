@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # AHK v2 zip 只含运行时（AutoHotkey64.exe）；Ahk2Exe 在 AutoHotkey/Ahk2Exe 仓库单独发行
       # （v2 安装器/zip 均不附带，靠 UX\install-ahk2exe.ahk 按需下载——在无桌面 CI 上不可用）。

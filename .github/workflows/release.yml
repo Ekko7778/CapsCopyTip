@@ -1,14 +1,12 @@
-# CursorTip 发行构建：推 v* tag 时编译并创建 GitHub Release
-# 触发条件设计：
-#   1. push tags 'v*'  —— 唯一发布入口。tag = 显式的发行意图，与本地「bump 独立提交 + 打 tag」流程无缝衔接
-#   2. workflow_dispatch —— 手动补构建（只产 artifact，不创建 Release，不会污染版本线）
-# 注意：不监听 main push（违背「编译=发版、需确认」流程）；不解析 bump commit 文案（脆弱，tag 已承担此职责）
+# CursorTip 发行构建：手动触发（Actions 页面 Run workflow），CI 编译并创建 GitHub Release
+# 流程：bump VERSION → push main → Actions → Release → Run workflow
+#   tag = vX.Y.Z 由 CursorTip.ahk 的 VERSION 行推导（单一真源），--target 钉死在本次构建的 SHA，
+#   不存在 tag/版本号错位的可能
+# 注意：不监听 push（tag 或 main）——发行必须是显式的人工动作；tag 已存在时 gh 会报错，
+#   想重发同版本需先删 Release + tag
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -24,7 +22,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 读取脚本版本号（单一真源：CursorTip.ahk 的 VERSION 行）
         shell: pwsh
@@ -37,17 +35,6 @@ jobs:
           $ver = $m.Matches[0].Groups[1].Value
           "VERSION=$ver" >> $env:GITHUB_ENV
           "脚本版本号: $ver"
-
-      - name: 校验 tag 与 VERSION 一致
-        if: ${{ github.event_name == 'push' }}
-        shell: pwsh
-        run: |
-          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
-          if ($tag -ne $env:VERSION) {
-            Write-Error "::error::tag v$tag 与 CursorTip.ahk 内 VERSION $($env:VERSION) 不一致 —— 修齐后再打 tag"
-            exit 1
-          }
-          "tag 与版本号一致: v$tag"
 
       # AHK v2 zip 只含运行时（AutoHotkey64.exe）；Ahk2Exe 在 AutoHotkey/Ahk2Exe 仓库单独发行
       # （v2 安装器/zip 均不附带，靠 UX\install-ahk2exe.ahk 按需下载——在无桌面 CI 上不可用）。
@@ -95,18 +82,11 @@ jobs:
           Compress-Archive -Path "dist\CursorTip_v$env:VERSION.exe", 'LICENSE' -DestinationPath "dist\CursorTip_v$env:VERSION.zip" -Force
           "打包完成: dist\CursorTip_v$env:VERSION.zip"
 
-      - name: 发布 GitHub Release
-        if: ${{ github.event_name == 'push' }}
+      - name: 发布 GitHub Release（tag 由 VERSION 推导，指向本次构建 SHA）
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          gh release create "$env:GITHUB_REF_NAME" --title "CursorTip $env:GITHUB_REF_NAME" --generate-notes "dist\CursorTip_v$env:VERSION.exe" "dist\CursorTip_v$env:VERSION.zip"
-          "已发布 Release $env:GITHUB_REF_NAME"
-
-      - name: 上传构建产物（仅手动触发：只产 artifact，不建 Release）
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: CursorTip_v${{ env.VERSION }}
-          path: dist/CursorTip_v*
+          $tag = "v$env:VERSION"
+          gh release create $tag --target $env:GITHUB_SHA --title "CursorTip $tag" --generate-notes "dist\CursorTip_v$env:VERSION.exe" "dist\CursorTip_v$env:VERSION.zip"
+          "已发布 Release $tag"
