@@ -8,7 +8,11 @@
 
 ;@Ahk2Exe-SetMainIcon %A_ScriptDir%\assets\app.ico
 
-#SingleInstance Force
+; 单实例判重交给启动段的「命名互斥体」守卫：
+; #SingleInstance 按 exe 文件名判重，版本化产物（CursorTip_v1.1.2.exe / v1.1.3.exe）会被当成不同程序并存
+#SingleInstance Off
+; 启动即建图标会让后来退出的实例闪一下托盘：先不建，守卫通过后再亮出（A_IconHidden := false）
+#NoTrayIcon
 Persistent
 A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修饰键会因 auto-repeat 触发，如微信语音输入按住说话）
 
@@ -256,8 +260,19 @@ BuildTrayMenu() {
     A_TrayMenu.Delete()
     A_TrayMenu.Add(T("tray_settings"), ShowSettings)
     A_TrayMenu.Add()
-    A_TrayMenu.Add(T("tray_reload"), (*) => Reload())
+    A_TrayMenu.Add(T("tray_reload"), ReloadApp)
     A_TrayMenu.Add(T("tray_exit"), (*) => ExitApp())
+}
+
+; 重启前先放开单实例互斥体：Reload 沿用本进程时句柄不会随实例关闭，
+; 不先放开的话重启后的脚本会撞上自己留下的互斥体而立即退出
+ReloadApp(*) {
+    global g_singleInstanceMutex
+    if (g_singleInstanceMutex) {
+        DllCall("kernel32\CloseHandle", "ptr", g_singleInstanceMutex)
+        g_singleInstanceMutex := 0
+    }
+    Reload()
 }
 
 ; 单击托盘图标打开设置
@@ -276,6 +291,13 @@ OnExit(OnScriptExit)
 ; ============================================================
 ; 启动
 ; ============================================================
+; 单实例守卫：命名互斥体跨所有版本生效（exe 文件名各异 / .ahk 直跑均互斥）。
+; 先到者持有且永不退出；后来者在亮出托盘图标之前直接退出——全程零闪烁
+global g_singleInstanceMutex := DllCall("kernel32\CreateMutexW", "ptr", 0, "int", true, "wstr", "CursorTip_SingleInstance", "ptr")
+if (g_singleInstanceMutex && A_LastError = 183)  ; ERROR_ALREADY_EXISTS = 已有实例
+    ExitApp()
+A_IconHidden := false  ; 守卫通过，亮出托盘图标（配合 #NoTrayIcon，后来者从未建过图标）
+
 Config.Load()
 ; 调试日志：每次启动清空，AI 通过读 work/debug.log 调试
 try {
