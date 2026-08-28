@@ -49,25 +49,38 @@ jobs:
           }
           "tag 与版本号一致: v$tag"
 
-      - name: 安装 AutoHotkey v2（choco）并递归定位 Ahk2Exe
+      # AHK v2 zip 只含运行时（AutoHotkey64.exe）；Ahk2Exe 在 AutoHotkey/Ahk2Exe 仓库单独发行
+      # （v2 安装器/zip 均不附带，靠 UX\install-ahk2exe.ahk 按需下载——在无桌面 CI 上不可用）。
+      # 双 zip 直解到同一目录 = 社区通用 CI 配方，绕开一切安装器（官方/UX/choco 安装器均会挂起或装不上）。
+      - name: 下载 AutoHotkey v2 + Ahk2Exe（zip 直解，不走安装器）
         shell: pwsh
         run: |
-          choco install autohotkey -y --no-progress
-          $roots = @('C:\Program Files\AutoHotkey', 'C:\Program Files (x86)\AutoHotkey', "$env:LocalAppData\Programs\AutoHotkey")
-          $ahk2exe = Get-ChildItem -Path $roots -Recurse -Filter 'Ahk2Exe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          $base = Get-ChildItem -Path $roots -Recurse -Filter 'AutoHotkey64.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          "ahk2exe: $ahk2exe"
-          "base: $base"
-          if (-not $ahk2exe -or -not $base) { Write-Error '::error::未找到 Ahk2Exe.exe / AutoHotkey64.exe'; exit 1 }
-          "AHK2EXE=$ahk2exe" >> $env:GITHUB_ENV
-          "AHKBASE=$base" >> $env:GITHUB_ENV
+          $dir = Join-Path $env:RUNNER_TEMP 'ahk'
+          $ahkZip = Join-Path $env:RUNNER_TEMP 'ahk.zip'
+          $cplZip = Join-Path $env:RUNNER_TEMP 'ahk2exe.zip'
+          curl.exe -sL 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.27/AutoHotkey_2.0.27.zip' -o $ahkZip
+          curl.exe -sL 'https://github.com/AutoHotkey/Ahk2Exe/archive/refs/tags/Ahk2Exe1.1.37.02a2.zip' -o $cplZip
+          foreach ($z in @($ahkZip, $cplZip)) {
+            if ((Get-Item $z).Length -lt 100KB) { Write-Error "::error::$z 下载不完整"; exit 1 }
+          }
+          Expand-Archive $ahkZip -DestinationPath $dir -Force
+          Expand-Archive $cplZip -DestinationPath $dir -Force
+          $srcDir = Get-ChildItem $dir -Directory -Filter 'Ahk2Exe-*' | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $srcDir -or -not (Test-Path "$srcDir\Ahk2Exe.ahk") -or -not (Test-Path "$dir\AutoHotkey64.exe")) {
+            Get-ChildItem $dir -Recurse | Select-Object -ExpandProperty FullName
+            Write-Error '::error::解压后未找到 Ahk2Exe.ahk / AutoHotkey64.exe'
+            exit 1
+          }
+          "AHK2EXE=$srcDir\Ahk2Exe.ahk" >> $env:GITHUB_ENV
+          "AHKBASE=$dir\AutoHotkey64.exe" >> $env:GITHUB_ENV
+          "AHK v2 就绪: $dir"
 
       - name: 编译
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $exe = Join-Path (Get-Location) "dist\CursorTip_v$env:VERSION.exe"
-          $p = Start-Process -FilePath $env:AHK2EXE -ArgumentList '/silent', '/in', 'CursorTip.ahk', '/out', $exe, '/base', $env:AHKBASE -Wait -PassThru
+          $p = Start-Process -FilePath $env:AHKBASE -ArgumentList $env:AHK2EXE, '/silent', 'verbose', '/in', 'CursorTip.ahk', '/out', $exe, '/base', $env:AHKBASE -Wait -PassThru
           "Ahk2Exe exit: $($p.ExitCode)"
           if (-not (Test-Path $exe)) {
             Write-Error '::error::编译失败，未产出 exe'
