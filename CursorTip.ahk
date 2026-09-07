@@ -1186,7 +1186,8 @@ MakePreviewCb(kind) {
 ; 返回 Edit 控件：外部按 ctl_xxx.Value 读写，SettingsSave/Reset/快照逻辑零改动
 AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "") {
     ; INI 值超程时滑块顶格，Edit 保留原值（保存钳制逻辑不变）
-    ctlSld := g.Add("Slider", "x" x " y" (y + 1) " w105 h22 Range" minV "-" maxV " NoTicks", Max(minV, Min(maxV, val)))
+    ; AltSubmit：默认 Change 仅在松手时触发（官方文档），加它才能拖动中高频触发→数值/预览实时跟手
+    ctlSld := g.Add("Slider", "x" x " y" (y + 1) " w105 h22 Range" minV "-" maxV " NoTicks AltSubmit", Max(minV, Min(maxV, val)))
     ctlEdit := g.Add("Edit", "x" (x + 109) " y" y " w42 h22 Number", val)
     if (unit != "")
         g.Add("Text", "x" (x + 155) " y" (y + 3), unit)
