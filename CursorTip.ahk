@@ -253,6 +253,8 @@ global settingsOpenPos := ""  ; 切语言重建时记忆窗口位置，避免销
 global settingsSessionLang := ""  ; 打开设置会话时的语言快照，切语言即时预览、取消时据此回滚
 global settingsDraft := ""  ; 切语言重建设置窗口时的控件草稿，ShowSettings 在 Show 前应用，避免选中状态闪烁
 global tipFixedWidth := 0  ; Caps/IME 提示固定宽度（按英文最宽文本测量，0=未测）
+global tipFixedHeight := 0  ; 固定提示控件高度（MeasureTipFixedWidth 一并测出）
+global tipBuiltTheme := ""  ; 当前 tip 窗口已用的配色主题（light/dark），预览时按需增量换色
 global tipGuiIsFixed := false  ; 当前 tipGui 是否固定宽度模式（决定能否复用窗口避免闪烁）
 
 
@@ -412,7 +414,7 @@ SetStartup(enable) {
 ; 测量英文模式下最宽 Caps/IME 提示（🔒 CAPS | ZH）的控件宽度，作为 Caps 提示固定宽度基准
 ; 字号/主题/语言变化后在 ApplySettings 里重测
 MeasureTipFixedWidth() {
-    global tipFixedWidth
+    global tipFixedWidth, tipFixedHeight
     c := Config
     g := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
     g.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
@@ -421,6 +423,7 @@ MeasureTipFixedWidth() {
     t.GetPos(,, &tw, &th)
     g.Destroy()
     tipFixedWidth := tw
+    tipFixedHeight := th   ; ShowTip 原地更新路径按此缩放控件/窗口
 }
 
 ; 销毁当前 tip 窗口并清状态：预览/ApplySettings 调用，强制下次 ShowTip 走重建分支以应用新外观
@@ -454,7 +457,7 @@ ShowTipAt(gw, gh) {
 }
 
 ShowTip(text, duration := 0, fixedWidth := false) {
-    global tipGui, tipGuiText, tipFixedWidth, tipGuiIsFixed
+    global tipGui, tipGuiText, tipFixedWidth, tipFixedHeight, tipGuiIsFixed, tipBuiltTheme
     c := Config
     FileAppend("CursorTip: ShowTip text='" . text . "' dur=" . duration . " fixed=" . fixedWidth . "`n", "work\debug.log")
 
@@ -469,19 +472,39 @@ ShowTip(text, duration := 0, fixedWidth := false) {
         ; （历史复用 bug 全源于「要重算宽度」：中文截断 / 控件堆叠变高 / 重绘残影——
         ;   固定宽度下不重算，这些坑不存在。）
         if (fixedWidth && tipGuiIsFixed && winValid && IsObject(tipGuiText)) {
+            ; 原地更新（同一 HWND，杜绝重建首帧空窗）。关键：变更门控——
+            ; 属性没变就一个都不碰，常规弹出/位置拖动保持零重绘（回归教训：每 tick 摸一遍
+            ; BackColor/SetFont/Move 会触发整窗擦除重绘，把原本丝滑的位置拖动搞闪）
+            theme := (c.tipLightMode = "auto") ? GetSystemTheme() : c.tipLightMode
+            if (theme != tipBuiltTheme) {
+                tipGui.BackColor := (theme = "light") ? "F5F5F5" : "333333"
+                tipGuiText.SetFont("c" . ((theme = "light") ? "333333" : "FFFFFF"))
+                tipBuiltTheme := theme
+            }
+            tipGuiText.GetPos(, , &cw, &ch)
+            if (tipFixedWidth > 0 && (tipFixedWidth != cw || tipFixedHeight != ch)) {
+                ; 字号/加粗变了：换字体 + 原地缩放控件与窗口（窗口新尺寸 = 当前 ± 控件尺寸差，
+                ; 免复算边框/边距任意 DPI 自洽）；RDW_UPDATENOW 强制同步绘制，杜绝异步空帧
+                tipGui.GetPos(,, &ww, &wh)
+                tipGuiText.SetFont("s" . c.tipFontSize . (c.tipFontBold ? " Bold" : ""), "Microsoft YaHei")
+                tipGuiText.Move(, , tipFixedWidth, tipFixedHeight)
+                tipGui.Move(, , ww - cw + tipFixedWidth, wh - ch + tipFixedHeight)
+                DllCall("RedrawWindow", "Ptr", tipGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x85)
+            }
             tipGuiText.Value := text
             tipGui.GetPos(,, &gw, &gh)
             ShowTipAt(gw, gh)
         } else {
-            ; 宽度模式变化或窗口无效：销毁重建，AutoSize 全新计算尺寸
-            if (IsObject(tipGui)) {
-                try tipGui.Destroy()
-                tipGui := ""
-                tipGuiText := ""
-            }
+            ; 宽度模式变化或窗口无效：重建，AutoSize 全新计算尺寸。
+            ; 旧窗口不先销毁——新窗口 Show 覆盖后再销毁，消除重建空帧闪烁（与设置窗口切语言同招）
+            oldGui := IsObject(tipGui) ? tipGui : ""
+            tipGui := ""
+            tipGuiText := ""
 
-            tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "")
+            ; E0x02000000(WS_EX_COMPOSITED)：子控件双缓冲绘制，背景擦除与文字绘制原子提交，防拖动重绘撕裂
+            tipGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20 +E0x02000000", "")
             theme := (c.tipLightMode = "auto") ? GetSystemTheme() : c.tipLightMode
+            tipBuiltTheme := theme
             if (theme = "light") {
                 tipGui.BackColor := "F5F5F5"
                 textColor := "333333"
@@ -508,6 +531,10 @@ ShowTip(text, duration := 0, fixedWidth := false) {
             tipGui.GetPos(,, &gw, &gh)
             ShowTipAt(gw, gh)
             tipGuiIsFixed := fixedWidth
+
+            ; 新窗口已显示，此刻销毁旧窗口无视觉中断
+            if (IsObject(oldGui))
+                try oldGui.Destroy()
         }
 
         ; 自动关闭
@@ -1207,11 +1234,11 @@ OnPosClick(ctl, *) {
     OnPreviewChange(ctl, "pos")
 }
 
-; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测/销毁 → 显示预览 tip
+; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测尺寸 → 显示预览 tip
 OnPreviewChange(ctl, kind) {
     g := ctl.Gui
     c := Config
-    needMeasure := false   ; 只有字号/粗细变化才需重测 tipFixedWidth
+    needMeasure := false   ; 只有字号/粗细变化才需重测 tipFixedWidth/Height
 
     switch kind {
         case "pos":                           ; pos1→1(鼠标) pos2→3(顶部) pos3→4(底部) pos4→2(中央)
@@ -1232,10 +1259,7 @@ OnPreviewChange(ctl, kind) {
         case "copyDur": c.copyShowDuration := ClampNum(g.ctl_copyDur.Value, 100, 99999, 800)
     }
 
-    ; 仅外观类改动需销毁重建：背景色/控件宽度在窗口创建时定死，复用会沿用旧值。
-    ; 位置/时长类改动走 ShowTip 固定宽度复用路径（只改文本+重新定位），拖滑块边拖边预览零闪烁
-    if (kind = "theme" || needMeasure)
-        DestroyTipGui()
+    ; 字号/加粗重测固定尺寸；配色/字体均可在现有窗口上原地更新（见 ShowTip 复用分支），无需强制重建
     if (needMeasure)
         MeasureTipFixedWidth()
 

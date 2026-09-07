@@ -1,7 +1,8 @@
-# CursorTip 发行构建：手动触发（Actions 页面 Run workflow），CI 编译并创建 GitHub Release
+# CursorTip 发行构建：手动触发（Actions 页面 Run workflow），CI 编译并创建 Draft Release
 # 流程：bump VERSION → push main → Actions → Release → Run workflow
 #   tag = vX.Y.Z 由 CursorTip.ahk 的 VERSION 行推导（单一真源），--target 钉死在本次构建的 SHA，
 #   不存在 tag/版本号错位的可能
+# Draft 模式下生成的 Release 需 AI 后续编辑（artifact 下载草稿 → 填充本次更新段 → gh release edit publish）。
 # 注意：不监听 push（tag 或 main）——发行必须是显式的人工动作；tag 已存在时 gh 会报错，
 #   想重发同版本需先删 Release + tag
 name: Release
@@ -82,11 +83,39 @@ jobs:
           Compress-Archive -Path "dist\CursorTip_v$env:VERSION.exe", 'LICENSE' -DestinationPath "dist\CursorTip_v$env:VERSION.zip" -Force
           "打包完成: dist\CursorTip_v$env:VERSION.zip"
 
-      - name: 发布 GitHub Release（tag 由 VERSION 推导，指向本次构建 SHA）
+      # Release body 草稿：固定模板（下载与使用 + 拦截提示）+ AI 填充位（本次更新）
+      # AI 流程：Actions run 页面下载 release-draft artifact → 填充 AI-FILL 段 → gh release edit publish
+      - name: 生成 Release body 草稿
+        shell: pwsh
+        run: |
+          $draft = @"
+          # CursorTip v$env:VERSION
+
+          ## ✨ 本次更新
+
+          <!-- AI-FILL-START -->
+          <!-- AI-FILL-END -->
+
+          ## 📥 下载与使用
+
+          下载 `CursorTip_v$env:VERSION.zip`，解压到固定目录，双击 `CursorTip.exe` 运行。
+
+          > ⚠️ 首次可能被 SmartScreen 拦截，点「更多信息 → 仍要运行」即可（本项目未做代码签名）。
+          "@
+          Set-Content -Path 'dist\RELEASE_DRAFT.md' -Value $draft -Encoding UTF8
+          "草稿已生成: dist\RELEASE_DRAFT.md"
+
+      - name: 上传草稿为 workflow artifact（AI 下载源）
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-draft
+          path: dist\RELEASE_DRAFT.md
+
+      - name: 创建 Draft Release（tag 由 VERSION 推导，指向本次构建 SHA）
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
           $tag = "v$env:VERSION"
-          gh release create $tag --target $env:GITHUB_SHA --title "CursorTip $tag" --generate-notes "dist\CursorTip_v$env:VERSION.exe" "dist\CursorTip_v$env:VERSION.zip"
-          "已发布 Release $tag"
+          gh release create $tag --target $env:GITHUB_SHA --title "CursorTip $tag" --draft --notes-file 'dist\RELEASE_DRAFT.md' "dist\CursorTip_v$env:VERSION.exe" "dist\CursorTip_v$env:VERSION.zip"
+          "已创建 Draft Release $tag（待 AI 编辑 → publish，发布后触发 mirror-to-r2）"
