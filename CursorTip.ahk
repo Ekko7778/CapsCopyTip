@@ -167,7 +167,7 @@ global L := Map(
         "msg_saved", "设置已保存",
         "err_save_config", "保存配置失败：",
         "err_set_startup", "设置开机启动失败：",
-        "link_about", "项目主页",
+        "link_about", "GitHub",
         "about_title", "版本",
         "btn_check_update", "检查更新",
         "btn_upgrade", "立即升级",
@@ -221,7 +221,7 @@ global L := Map(
         "msg_saved", "Settings saved",
         "err_save_config", "Failed to save config: ",
         "err_set_startup", "Failed to set startup: ",
-        "link_about", "Website",
+        "link_about", "GitHub",
         "about_title", "Version",
         "btn_check_update", "Check",
         "btn_upgrade", "Upgrade",
@@ -1336,9 +1336,9 @@ ShowSettings(*) {
 
     g.Add("Text", "x20 y147 w110", T("set_caps_label"))
     ; 时长滑块量程 100-3000ms 实用区间，更大值可手输（保存仍钳到 99999）
-    g.ctl_capsDur := AddNumSlider(g, "capsDur", 135, 144, 100, 3000, c.capsShowDuration, "ms")
+    g.ctl_capsDur := AddNumSlider(g, "capsDur", 135, 144, 100, 3000, c.capsShowDuration, "ms", 100)
     g.Add("Text", "x20 y177 w110", T("set_copy_label"))
-    g.ctl_copyDur := AddNumSlider(g, "copyDur", 135, 174, 100, 3000, c.copyShowDuration, "ms")
+    g.ctl_copyDur := AddNumSlider(g, "copyDur", 135, 174, 100, 3000, c.copyShowDuration, "ms", 100)
 
     g.Add("Text", "x10 y202 w320 h1 BackgroundDDDDDD")
 
@@ -1369,11 +1369,11 @@ ShowSettings(*) {
     ; 鼠标2行 / 顶底1行 / 中央0行 → 分割线及以下由 ReflowBelow 整体平移折叠，窗口高同步收缩
     ; 方位 radio 显式 h22：YaHei 下自动高约 28px，底边会压到下方控件，悬停重绘出伪影
     g.belowCtrls := []
-    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 14, 282, 0, 100, c.tipMouseOffset, "px")
+    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 14, 282, 0, 100, c.tipMouseOffset, "px", 5)
     g.ctl_mouseBr := g.Add("Radio", "x20 y312 h22 w70 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
     g.ctl_mouseTr := g.Add("Radio", "x100 y312 h22 w70" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
-    g.ctl_topOffset := AddNumSlider(g, "topOffset", 14, 282, 0, 500, c.tipTopOffset, "px")
-    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 14, 282, 0, 500, c.tipBottomOffset, "px")
+    g.ctl_topOffset := AddNumSlider(g, "topOffset", 14, 282, 0, 500, c.tipTopOffset, "px", 10)
+    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 14, 282, 0, 500, c.tipBottomOffset, "px", 10)
     SetPosSegment(g, PosSegOf(c.tipPosition))   ; 初始化激活段（此时下方控件尚未创建，登记表为空，ReflowBelow 是空转）
 
     ; 以下控件全部登记进 belowCtrls：位置面板行数变化时由 ReflowBelow 整体平移（显隐归 SyncPositionPanel 管）
@@ -1403,8 +1403,8 @@ ShowSettings(*) {
     g.ctl_themeAuto.OnEvent("Click", MakePreviewCb("theme"))
     g.ctl_lightMode.OnEvent("Click", MakePreviewCb("theme"))
     g.ctl_darkMode.OnEvent("Click", MakePreviewCb("theme"))
-    g.ctl_capsDur.OnEvent("Change", MakePreviewCb("capsDur"))
-    g.ctl_copyDur.OnEvent("Change", MakePreviewCb("copyDur"))
+    ; 显示时长滑块不挂预览（OnPreviewChange 对 capsDur/copyDur 直接短路）：拖动弹 tip 是打扰，
+    ; 值由 保存/恢复默认 经 SyncConfigFromGui 直读控件落盘
 
     ; === 语言 ===
     TrackBelow(g, g.Add("Text", "x20 y494 w80", T("set_language")))
@@ -1581,17 +1581,22 @@ MakePreviewCb(kind) {
 
 ; 数值组合控件：[滑块][输入框][单位] 双向同步，任一改动走 OnPreviewChange(kind) 实时预览
 ; 程序设 .Value 不触发 Change 事件（仅用户操作触发，见 v2-changes 文档），双向回写无死循环
+; step > 0 时滑块有级：拖动/初始值按 step 取整吸附（滑块与数值同步跳档）；
+; Edit 手输保持精确不吸附——其 Change 逐键触发，吸附会打断正常输入
 ; 返回 Edit 控件：外部按 ctl_xxx.Value 读写，SettingsSave/Reset/快照逻辑零改动
-AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "") {
-    ; INI 值超程时滑块顶格，Edit 保留原值（保存钳制逻辑不变）
+AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "", step := 0) {
+    val := step > 0 ? Max(minV, Min(maxV, Round(val / step) * step)) : Max(minV, Min(maxV, val))
     ; AltSubmit：默认 Change 仅在松手时触发（官方文档），加它才能拖动中高频触发→数值/预览实时跟手
-    ctlSld := g.Add("Slider", "x" x " y" (y + 1) " w105 h22 Range" minV "-" maxV " NoTicks AltSubmit", Max(minV, Min(maxV, val)))
+    ctlSld := g.Add("Slider", "x" x " y" (y + 1) " w105 h22 Range" minV "-" maxV " NoTicks AltSubmit", val)
     ctlEdit := g.Add("Edit", "x" (x + 109) " y" y " w42 h22 Number", val)
     unitCtl := (unit != "") ? g.Add("Text", "x" (x + 155) " y" (y + 3), unit) : ""
     ; 三件套挂到 Edit 上，供参数面板整体显隐（SyncPositionPanel）
     ctlEdit.Slider := ctlSld
     ctlEdit.Unit := unitCtl
-    ctlSld.OnEvent("Change", (sld, *) => (ctlEdit.Value := sld.Value, OnPreviewChange(sld, kind)))
+    ctlSld.OnEvent("Change", (sld, *) => (
+        sld.Value := step > 0 ? Max(minV, Min(maxV, Round(sld.Value / step) * step)) : sld.Value,
+        ctlEdit.Value := sld.Value,
+        OnPreviewChange(sld, kind)))
     ctlEdit.OnEvent("Change", (ed, *) => (
         ctlSld.Value := Max(minV, Min(maxV, IsInteger(ed.Value) ? Integer(ed.Value) : minV)),
         OnPreviewChange(ed, kind)))
@@ -1684,6 +1689,10 @@ RoundCtrl(ctrl, w, h, r) {
 OnPreviewChange(ctl, kind) {
     g := ctl.Gui
     c := Config
+    ; 显示时长不预览：拖动每档弹一次 tip 是打扰；Config 内存也不实时写，
+    ; 保存/恢复默认走 SyncConfigFromGui 直读控件（取消则控件值自然丢弃，无需回滚）
+    if (kind = "capsDur" || kind = "copyDur")
+        return
     needMeasure := false   ; 只有字号/粗细变化才需重测 tipFixedWidth/Height
 
     switch kind {
@@ -1701,8 +1710,6 @@ OnPreviewChange(ctl, kind) {
             needMeasure := true
         case "theme":
             c.tipLightMode := g.ctl_themeAuto.Value ? "auto" : (g.ctl_lightMode.Value ? "light" : "dark")
-        case "capsDur": c.capsShowDuration := ClampNum(g.ctl_capsDur.Value, 100, 99999, 800)
-        case "copyDur": c.copyShowDuration := ClampNum(g.ctl_copyDur.Value, 100, 99999, 800)
     }
 
     ; 字号/加粗重测固定尺寸；配色/字体均可在现有窗口上原地更新（见 ShowTip 复用分支），无需强制重建
