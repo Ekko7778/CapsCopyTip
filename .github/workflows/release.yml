@@ -96,7 +96,6 @@ jobs:
           $draft = @"
           # CursorTip v$env:VERSION
 
-          ## 本次更新
 
           <!-- AI-FILL-START -->
           <!-- AI-FILL-END -->
