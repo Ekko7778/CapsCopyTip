@@ -689,6 +689,12 @@ FinishUpdateCheck() {
         UpdLog("check fail (parse)")
         return
     }
+    if !RegExMatch(m[1], "^\d+\.\d+\.\d+$") {
+        ; tag 不是 semver（如 GitHub 草稿占位符 untagged-*）：Release 数据坏了，明示失败而非当最新版
+        g_updateState := "failed"
+        UpdLog("check fail (bad tag=" . m[1] . ")")
+        return
+    }
     g_updateLatestVer := m[1]
     if IsNewerVersion(m[1], VERSION) {
         g_updateState := "available"
