@@ -1,7 +1,8 @@
-# CursorTip 发行构建：VERSION 递增时自动触发（push main + CursorTip.ahk VERSION diff），手动 Run workflow 作为逃逸通道
-# 流程：bump VERSION → push main → detect-version-change (ubuntu, 1s grep) → build-release (windows, 编译 + Draft)
-#   tag = vX.Y.Z 由 CursorTip.ahk 的 VERSION 行推导（单一真源），--target 钉死在本次构建的 SHA，
-#   不存在 tag/版本号错位的可能
+# CursorTip 发行构建：VERSION.ahk 变更时自动触发（paths 按整个 push 的 two-dot diff 判定，
+# bump 混在多 commit push 里也不会漏），手动 Run workflow 作为逃逸通道
+# 流程：bump VERSION.ahk → push main → build-release (windows, 编译 + Draft)
+#   tag = vX.Y.Z 由 VERSION.ahk 推导（单一真源，CursorTip.ahk #Include 它，exe 内版本同源），
+#   --target 钉死在本次构建的 SHA，不存在 tag/版本号错位的可能
 # Draft 模式下生成的 Release 需 AI 后续编辑（artifact 下载草稿 → 填充本次更新段 → gh release edit publish）。
 # 注意：tag 已存在时 gh 会报错；想重发同版本需先删 Release + tag。
 name: Release
@@ -10,7 +11,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'CursorTip.ahk'
+      - 'VERSION.ahk'
   workflow_dispatch:
 
 permissions:
@@ -21,54 +22,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # VERSION diff 守门：用 ubuntu 跑一次 grep（秒级），
-  # 仅在 CursorTip.ahk 的 VERSION 行有变动时才让 build-release 真的编译。
-  # 手动作业 / 第一次提交 / force-push 都会 fall through 到 changed=true（兜底放过）。
-  detect-version-change:
-    runs-on: ubuntu-latest
-    outputs:
-      should_build: ${{ steps.check.outputs.changed }}
-      version: ${{ steps.check.outputs.version }}
-    steps:
-      - name: Checkout（含 HEAD~1 对比所需历史）
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 2
-
-      - name: 对比 VERSION 行（仅递增才发版）
-        id: check
-        shell: bash
-        run: |
-          current=$(grep -oP 'global VERSION := "\K\d+\.\d+\.\d+' CursorTip.ahk)
-          previous=$(git show HEAD~1:CursorTip.ahk 2>/dev/null \
-            | grep -oP 'global VERSION := "\K\d+\.\d+\.\d+' || echo "")
-          # 首次提交 / 上一版本缺失 → 视为变更（兜底放行）
-          if [ -z "$previous" ] || [ "$current" != "$previous" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "version=$current" >> "$GITHUB_OUTPUT"
-          echo "VERSION diff: '$previous' → '$current' (changed=${changed:-true})"
-
+  # paths 过滤已保证只有 VERSION.ahk 变更的 push 才进得来，无需再 diff 守门
   build-release:
-    needs: detect-version-change
-    # workflow_dispatch 绕过检测（逃逸通道）；push 触发时仅 VERSION 变了才构建
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      needs.detect-version-change.outputs.should_build == 'true'
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: 读取脚本版本号（单一真源：CursorTip.ahk 的 VERSION 行）
+      - name: 读取版本号（单一真源：VERSION.ahk，CursorTip.ahk #Include 它）
         shell: pwsh
         run: |
-          $m = Select-String -Path 'CursorTip.ahk' -Pattern 'global VERSION := "(\d+\.\d+\.\d+)"'
+          $m = Select-String -Path 'VERSION.ahk' -Pattern 'global VERSION := "(\d+\.\d+\.\d+)"'
           if (-not $m) {
-            Write-Error '::error::CursorTip.ahk 里找不到 VERSION 行'
+            Write-Error '::error::VERSION.ahk 里找不到 VERSION 行'
             exit 1
           }
           $ver = $m.Matches[0].Groups[1].Value

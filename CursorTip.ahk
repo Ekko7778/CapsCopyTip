@@ -17,9 +17,9 @@ Persistent
 A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修饰键会因 auto-repeat 触发，如微信语音输入按住说话）
 
 ; ============================================================
-; 版本
+; 版本（真源在 VERSION.ahk：发行工作流监听它变化自动触发发行）
 ; ============================================================
-global VERSION := "1.2.1"
+#Include "VERSION.ahk"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -1012,29 +1012,32 @@ ShowSettings(*) {
         RoundCtrl(onCtrl, 72, 24, 12)   ; r12 = 高度一半，胶囊形
     }
 
-    ; 参数面板：滑块统一居左（x20 同一列），鼠标段方位选项居右（显式 h22 与输入框同高对齐，
-    ; 且控件底边不得压到下方分割线——YaHei 下 radio 自动高约 28px，悬停重绘会吃线）；中央段无参数
-    ; 滑块 x14：Slider 控件轨道有内边距，左移后视觉上与上方选项条左缘对齐
+    ; 参数面板（动态布局）：滑块统一居左 x14（Slider 轨道有内边距，左移后与上方选项条左缘对齐）；
+    ; 鼠标段方位选项独占第二行（英文 Below/Above 词长，挤滑块右侧放不下）。行数随段变化：
+    ; 鼠标2行 / 顶底1行 / 中央0行 → 分割线及以下由 ReflowBelow 整体平移折叠，窗口高同步收缩
+    ; 方位 radio 显式 h22：YaHei 下自动高约 28px，底边会压到下方控件，悬停重绘出伪影
+    g.belowCtrls := []
     g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 14, 282, 0, 100, c.tipMouseOffset, "px")
-    g.ctl_mouseBr := g.Add("Radio", "x205 y282 h22 w58 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
-    g.ctl_mouseTr := g.Add("Radio", "x266 y282 h22 w58" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
+    g.ctl_mouseBr := g.Add("Radio", "x20 y312 h22 w70 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
+    g.ctl_mouseTr := g.Add("Radio", "x100 y312 h22 w70" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
     g.ctl_topOffset := AddNumSlider(g, "topOffset", 14, 282, 0, 500, c.tipTopOffset, "px")
     g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 14, 282, 0, 500, c.tipBottomOffset, "px")
-    SetPosSegment(g, PosSegOf(c.tipPosition))   ; 初始化激活段（含面板显隐）
+    SetPosSegment(g, PosSegOf(c.tipPosition))   ; 初始化激活段（此时下方控件尚未创建，登记表为空，ReflowBelow 是空转）
 
-    g.Add("Text", "x10 y310 w320 h1 BackgroundDDDDDD")
+    ; 以下控件全部登记进 belowCtrls：位置面板行数变化时由 ReflowBelow 整体平移（显隐归 SyncPositionPanel 管）
+    TrackBelow(g, g.Add("Text", "x10 y340 w320 h1 BackgroundDDDDDD"))   ; 分割线
 
     ; === 外观样式 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y322", T("set_appearance"))
+    TrackBelow(g, g.Add("Text", "x20 y352", T("set_appearance")))
     g.SetFont("Norm")
 
-    g.ctl_themeAuto := g.Add("Radio", "x20 y347 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto"))
-    g.ctl_lightMode := g.Add("Radio", "x20 y374 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
-    g.ctl_darkMode := g.Add("Radio", "x200 y374 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
-    g.Add("Text", "x20 y404 w70", T("set_fontsize"))
-    g.ctl_bold := g.Add("CheckBox", "x80 y404 w58", T("set_bold"))
-    g.ctl_fontSize := AddNumSlider(g, "fontSize", 145, 401, 8, 72, c.tipFontSize, "pt")
+    g.ctl_themeAuto := TrackBelow(g, g.Add("Radio", "x20 y377 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto")))
+    g.ctl_lightMode := TrackBelow(g, g.Add("Radio", "x20 y404 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light")))
+    g.ctl_darkMode := TrackBelow(g, g.Add("Radio", "x200 y404 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark")))
+    TrackBelow(g, g.Add("Text", "x20 y434 w70", T("set_fontsize")))
+    g.ctl_fontSize := TrackBelow(g, AddNumSlider(g, "fontSize", 145, 431, 8, 72, c.tipFontSize, "pt"))
+    g.ctl_bold := TrackBelow(g, g.Add("CheckBox", "x20 y464", T("set_bold")))   ; 加粗独占一行（与方位选项同款换行处理，英文 Bold 也不再挤压）
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 实时预览：视觉控件改动立即按未保存设置显示 tip，不写盘（保存才落定，取消回滚）===
@@ -1052,29 +1055,29 @@ ShowSettings(*) {
     g.ctl_copyDur.OnEvent("Change", MakePreviewCb("copyDur"))
 
     ; === 语言 ===
-    g.Add("Text", "x20 y434 w80", T("set_language"))
+    TrackBelow(g, g.Add("Text", "x20 y494 w80", T("set_language")))
     langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
-    g.ctl_lang := g.Add("DDL", "x200 y431 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
+    g.ctl_lang := TrackBelow(g, g.Add("DDL", "x200 y491 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")]))
     g.ctl_lang.OnEvent("Change", OnLangChange)
 
-    g.Add("Text", "x10 y462 w320 h1 BackgroundDDDDDD")
+    TrackBelow(g, g.Add("Text", "x10 y522 w320 h1 BackgroundDDDDDD"))
 
     ; === 按钮 ===
-    g.Add("Button", "x20 y477 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
-    g.Add("Button", "x130 y477 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
-    g.Add("Button", "x240 y477 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
+    TrackBelow(g, g.Add("Button", "x20 y537 w80", T("btn_reset"))).OnEvent("Click", SettingsReset)
+    TrackBelow(g, g.Add("Button", "x130 y537 w80", T("btn_cancel"))).OnEvent("Click", SettingsClose)
+    TrackBelow(g, g.Add("Button", "x240 y537 w80 Default", T("btn_save"))).OnEvent("Click", SettingsSave)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    g.Add("Picture", "x20 y517 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
+    TrackBelow(g, g.Add("Picture", "x20 y577 w16 h16", icoPath)).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y519", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>')
-    g.Add("Text", "x200 y519", "© 2026  MIT License")
+    TrackBelow(g, g.Add("Link", "x40 y579", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>'))
+    TrackBelow(g, g.Add("Text", "x200 y579", "© 2026  MIT License"))
 
     ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
-    showOpts := "w340 h547"
+    showOpts := "w340 h607"   ; 基础高（鼠标段2行）；实际高由 ReflowBelow 按当前段收缩（顶底577/中央547）
     if (settingsOpenPos != "")
         showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
     ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
@@ -1085,6 +1088,7 @@ ShowSettings(*) {
         RestoreSettings(g, settingsDraft)
         settingsDraft := ""
     }
+    ReflowBelow(g)   ; 初始化时 SetPosSegment 早于下方控件创建，显示前按当前段兜底重排一次
     g.Show(showOpts)
     settingsGui := g
 }
@@ -1264,6 +1268,41 @@ SyncPositionPanel(g) {
     SetSliderVisible(g.ctl_topOffset, idx = 2)
     SetSliderVisible(g.ctl_bottomOffset, idx = 3)
     g.ctl_mouseBr.Visible := g.ctl_mouseTr.Visible := (idx = 1)
+    ReflowBelow(g)   ; 行数随段变化（2/1/0），下方控件整体平移折叠
+}
+
+; 位置面板下方控件登记（引用 + 基础 Y）：面板行数变化时由 ReflowBelow 整体平移。返回 ctl 便于链式挂事件
+TrackBelow(g, ctl) {
+    ctl.GetPos(, &y)
+    g.belowCtrls.Push({ctl: ctl, y: y})
+    return ctl
+}
+
+; 位置面板动态布局：鼠标段2行 / 顶底段1行 / 中央段0行，行距30。下方控件按 (2-行数)*30 上移折叠，
+; 窗口高同步收缩避免底部留白。绝对定位（基于登记时的基础 Y），可安全重复调用；
+; AddNumSlider 三件套的滑块(y+1)/单位(y+3)随 Edit 同步移动。607 = 基础窗口高（鼠标段2行时）
+ReflowBelow(g) {
+    rows := (g.ctl_posSeg = 1) ? 2 : (g.ctl_posSeg = 4) ? 0 : 1
+    dy := (2 - rows) * 30
+    ; 整体 try：重排中途窗口被销毁（切语言重建/关闭竞态）时静默放弃。禁用 SendMessage 的
+    ; ahk_id 窗口查找（隐藏窗口上会抛 Target window not found，已踩坑两次），全部走 Gui 自身 API
+    try {
+        g.Opt("-Redraw")   ; 批量平移期间挂起重绘（含子控件），避免逐控件闪帧
+        for it in g.belowCtrls {
+            it.ctl.Move(, it.y - dy)
+            if (it.ctl.HasProp("Slider")) {   ; AddNumSlider 返回的 Edit 才挂了 Slider；GuiControl 读未定义属性会抛错（不能用 != ""）
+                it.ctl.Slider.Move(, it.y - dy + 1)
+                if (it.ctl.HasProp("Unit"))
+                    it.ctl.Unit.Move(, it.y - dy + 3)
+            }
+        }
+        g.Move(, , , 607 - dy)
+        g.Opt("+Redraw")   ; 恢复重绘并整窗重绘一遍
+        ; 强制「擦除+同步重绘」兜底：平移腾空的区域若不擦除，会残留上一帧控件影像（鬼影）
+        ; RDW_ERASE|RDW_INVALIDATE|RDW_ALLCHILDREN|RDW_UPDATENOW = 0x4|0x1|0x80|0x100
+        DllCall("RedrawWindow", "Ptr", g.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x185)
+    } catch {
+    }
 }
 
 ; 位置分段条点击：切换激活段 + 照常预览
