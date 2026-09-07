@@ -103,7 +103,7 @@ jobs:
 
           ## 下载与使用
 
-          下载 `CursorTip_v$env:VERSION.zip`，解压到固定目录，双击 `CursorTip.exe` 运行。
+          首次使用建议下载 `CursorTip_v$env:VERSION.zip`，解压到固定目录，双击 `CursorTip.exe` 运行即可使用。
 
           > 首次可能被 SmartScreen 拦截，点「更多信息 → 仍要运行」即可（本项目未做代码签名）。
           "@
