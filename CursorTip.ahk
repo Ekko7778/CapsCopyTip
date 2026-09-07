@@ -965,15 +965,18 @@ ShowSettings(*) {
     g.Add("Text", "x20 y214", T("set_position"))
     g.SetFont("Norm")
 
-    ; Radio 显示顺序: 跟随鼠标 / 屏幕顶部 / 屏幕底部 / 屏幕中央（中央用得少，放最后）
+    ; 位置 Radio 一组（+Group 起组，同组成员须连续创建）：跟随鼠标 / 顶部 / 底部 / 中央，单一激活
     ; tipPosition 值的含义保持不变（1=鼠标, 2=中央, 3=顶部, 4=底部），仅 Radio 显示顺序与控件->值映射调整
     g.ctl_pos1 := g.Add("Radio", "x20 y239 w120 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
-    ; 跟随鼠标的两个方位选项（tipMouseAbove: 右下=0 / 右上=1），仅鼠标模式生效
-    g.ctl_mouseBr := g.Add("Radio", "x40 y266 w110 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
-    g.ctl_mouseTr := g.Add("Radio", "x155 y266 w110" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
     g.ctl_pos2 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
     g.ctl_pos3 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
     g.ctl_pos4 := g.Add("Radio", "x20 y347 w140" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
+    ; 跟随鼠标的方位选项：独立一组（+Group 开新组），仅鼠标模式生效（tipMouseAbove: 右下=0 / 右上=1）
+    g.ctl_mouseBr := g.Add("Radio", "x40 y266 w110 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
+    g.ctl_mouseTr := g.Add("Radio", "x155 y266 w110" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
+    ; 非「跟随鼠标」模式隐藏方位子选项（位置 radio 点击经 OnPosClick 联动显隐）
+    if (c.tipPosition != 1)
+        g.ctl_mouseBr.Visible := g.ctl_mouseTr.Visible := false
     ; 偏移滑块从 x150 起（Radio 文字最长到 x140）：[滑块][Edit][px]
     g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 150, 239, 0, 100, c.tipMouseOffset, "px")
     g.ctl_topOffset := AddNumSlider(g, "topOffset", 150, 293, 0, 500, c.tipTopOffset, "px")
@@ -995,10 +998,10 @@ ShowSettings(*) {
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 实时预览：视觉控件改动立即按未保存设置显示 tip，不写盘（保存才落定，取消回滚）===
-    g.ctl_pos1.OnEvent("Click", MakePreviewCb("pos"))
-    g.ctl_pos2.OnEvent("Click", MakePreviewCb("pos"))
-    g.ctl_pos3.OnEvent("Click", MakePreviewCb("pos"))
-    g.ctl_pos4.OnEvent("Click", MakePreviewCb("pos"))
+    g.ctl_pos1.OnEvent("Click", OnPosClick)
+    g.ctl_pos2.OnEvent("Click", OnPosClick)
+    g.ctl_pos3.OnEvent("Click", OnPosClick)
+    g.ctl_pos4.OnEvent("Click", OnPosClick)
     g.ctl_mouseBr.OnEvent("Click", MakePreviewCb("mouseAbove"))
     g.ctl_mouseTr.OnEvent("Click", MakePreviewCb("mouseAbove"))
     g.ctl_mouseOffset.OnEvent("Change", MakePreviewCb("mouseOffset"))
@@ -1194,7 +1197,16 @@ AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "") {
     return ctlEdit
 }
 
-; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测宽度 → 销毁旧 tip → 显示预览 tip
+; 位置 radio 点击：非「跟随鼠标」时隐藏方位子选项，消除歧义；其余照常预览
+OnPosClick(ctl, *) {
+    g := ctl.Gui
+    v := g.ctl_pos1.Value
+    g.ctl_mouseBr.Visible := v
+    g.ctl_mouseTr.Visible := v
+    OnPreviewChange(ctl, "pos")
+}
+
+; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测/销毁 → 显示预览 tip
 OnPreviewChange(ctl, kind) {
     g := ctl.Gui
     c := Config
@@ -1219,8 +1231,10 @@ OnPreviewChange(ctl, kind) {
         case "copyDur": c.copyShowDuration := ClampNum(g.ctl_copyDur.Value, 100, 99999, 800)
     }
 
-    ; 任何外观/位置变化都要先销毁旧窗口：ShowTip 固定宽度复用路径只改文本，不销毁会沿用旧字号/背景色
-    DestroyTipGui()
+    ; 仅外观类改动需销毁重建：背景色/控件宽度在窗口创建时定死，复用会沿用旧值。
+    ; 位置/时长类改动走 ShowTip 固定宽度复用路径（只改文本+重新定位），拖滑块边拖边预览零闪烁
+    if (kind = "theme" || needMeasure)
+        DestroyTipGui()
     if (needMeasure)
         MeasureTipFixedWidth()
 
@@ -1286,6 +1300,7 @@ SettingsReset(ctrl, *) {
     g.ctl_mouseOffset.Value := d.tipMouseOffset
     g.ctl_mouseBr.Value := !d.tipMouseAbove
     g.ctl_mouseTr.Value := d.tipMouseAbove
+    g.ctl_mouseBr.Visible := g.ctl_mouseTr.Visible := (d.tipPosition = 1)
     g.ctl_topOffset.Value := d.tipTopOffset
     g.ctl_bottomOffset.Value := d.tipBottomOffset
 
@@ -1295,19 +1310,21 @@ SettingsReset(ctrl, *) {
     g.ctl_lightMode.Value := (d.tipLightMode = "light")
     g.ctl_darkMode.Value := (d.tipLightMode = "dark")
     g.ctl_lang.Value := Map("auto",1,"zh",2,"en",3)[d.language]
+
+    ; 控件已复位，Config 内存与预览一并复位：否则后续任何改动触发预览时，
+    ; 仍按复位前的样式渲染（旧字号/主题残留在 Config 里）
+    SyncConfigFromGui(g)
+    DestroyTipGui()
+    MeasureTipFixedWidth()
+    ShowTip(GetPreviewText(), Config.capsShowDuration, true)
 }
 
-SettingsSave(ctrl, *) {
-    global settingsGui, settingsSessionLang, settingsConfigSnap
-    g := ctrl.Gui
+; 把设置窗口控件值同步进 Config 内存（保存/恢复默认共用；写盘与开机启动由调用方负责）
+SyncConfigFromGui(g) {
     c := Config
-
-    ; 读取 GUI 值
     c.enableCapsTip := g.ctl_caps.Value
     c.enableCopyTip := g.ctl_copy.Value
     c.showIMEStatus := g.ctl_ime.Value
-
-    SetStartup(g.ctl_startup.Value)
 
     c.capsShowDuration := Max(100, Integer(g.ctl_capsDur.Value || 800))
     c.copyShowDuration := Max(100, Integer(g.ctl_copyDur.Value || 800))
@@ -1333,6 +1350,14 @@ SettingsSave(ctrl, *) {
     c.tipFontBold := g.ctl_bold.Value
     c.tipLightMode := g.ctl_themeAuto.Value ? "auto" : (g.ctl_lightMode.Value ? "light" : "dark")
     c.language := ["auto", "zh", "en"][g.ctl_lang.Value]
+}
+
+SettingsSave(ctrl, *) {
+    global settingsGui, settingsSessionLang, settingsConfigSnap
+    g := ctrl.Gui
+
+    SetStartup(g.ctl_startup.Value)
+    SyncConfigFromGui(g)
 
     Config.Save()
     ApplySettings()
