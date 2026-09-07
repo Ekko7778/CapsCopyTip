@@ -167,7 +167,15 @@ global L := Map(
         "msg_saved", "设置已保存",
         "err_save_config", "保存配置失败：",
         "err_set_startup", "设置开机启动失败：",
-        "link_about", "检查更新",
+        "link_about", "项目主页",
+        "about_title", "版本",
+        "btn_check_update", "检查更新",
+        "btn_upgrade", "立即升级",
+        "upd_checking", "检查中…",
+        "upd_latest", "已是最新版本",
+        "upd_new", "发现新版本 v{n}",
+        "upd_downloading", "下载中… {n} MB",
+        "upd_failed", "检查失败",
         "err_title", "错误"
     ),
     "en", Map(
@@ -213,7 +221,15 @@ global L := Map(
         "msg_saved", "Settings saved",
         "err_save_config", "Failed to save config: ",
         "err_set_startup", "Failed to set startup: ",
-        "link_about", "Check for updates",
+        "link_about", "Website",
+        "about_title", "Version",
+        "btn_check_update", "Check",
+        "btn_upgrade", "Upgrade",
+        "upd_checking", "Checking…",
+        "upd_latest", "Already up to date",
+        "upd_new", "New version v{n}",
+        "upd_downloading", "Downloading… {n} MB",
+        "upd_failed", "Update failed",
         "err_title", "Error"
     )
 )
@@ -257,6 +273,19 @@ global tipFixedHeight := 0  ; 固定提示控件高度（MeasureTipFixedWidth �
 global tipBuiltTheme := ""  ; 当前 tip 窗口已用的配色主题（light/dark），预览时按需增量换色
 global tipGuiIsFixed := false  ; 当前 tipGui 是否固定宽度模式（决定能否复用窗口避免闪烁）
 
+; 应用内更新状态机（详见「自动更新」段）
+global g_updateState := "idle"      ; idle/checking/uptodate/available/downloading/failed
+global g_updateLatestVer := ""      ; 检查到的远端最新版本号（不含 v 前缀）
+global g_checkSilent := false       ; 本次检查是否启动静默触发（决定要不要弹气泡）
+global g_curlPid := 0               ; 当前 curl 子进程 PID
+global g_curlMode := ""             ; curl 用途：check / download
+global g_curlStart := 0             ; curl 启动时刻（A_TickCount，超时墙基准）
+global UPD_API := "https://api.github.com/repos/zeno528/CursorTip/releases/latest"
+global UPD_DL_BASE := "https://github.com/zeno528/CursorTip/releases/download/"
+global UPD_TEMP_JSON := A_Temp . "\CursorTip_update.json"
+global UPD_TEMP_EXE := A_Temp . "\CursorTip_update.exe"
+global SETTINGS_BASE_H := 647       ; 设置窗口基础高（鼠标段2行，607 + 关于板块）；实际高由 ReflowBelow 收缩
+
 
 ; ============================================================
 ; 托盘菜单
@@ -299,6 +328,47 @@ OnExit(OnScriptExit)
 ; ============================================================
 ; 启动
 ; ============================================================
+; 自动更新应用器：本 exe 被旧版本以 --update-apply <旧exe路径> <旧PID> 拉起的第二形态。
+; 必须放在互斥体守卫之前——升级器是搬运工不抢锁；守卫通过后它同样被挡是靠旧实例先退出
+if (A_IsCompiled && A_Args.Length >= 3 && A_Args[1] = "--update-apply") {
+    Suspend(true)  ; 升级器存活期（秒级）禁掉一切热键/定时器反应，纯搬运
+    applyTarget := ""
+    tgtDir := ""
+    try {
+        applyTarget := A_Args[2]
+        oldPid := Integer(A_Args[3])
+        SplitPath(applyTarget, &oldName, &tgtDir)
+        ; 等旧实例退出（进程退出即释放 exe 句柄与互斥体），30s 上限
+        applyStart := A_TickCount
+        while (ProcessExist(oldPid) && A_TickCount - applyStart < 30000)
+            Sleep(250)
+        ; 落盘规则：项目标准命名（CursorTip.exe / CursorTip_v1.2.1.exe）→ 换成新版本号文件名，
+        ; 文件名始终与内容版本一致；用户自定义名 → 原地覆盖保留原名
+        isStandardName := RegExMatch(oldName, "^CursorTip(\.exe|_v[\d.]+\.exe)$")
+        dest := isStandardName ? (tgtDir . "\CursorTip_v" . VERSION . ".exe") : applyTarget
+        moveOk := false
+        loop 5 {  ; 进程死透 ≠ 文件句柄即时释放（AV 扫描可能持句柄），重试兜底
+            try {
+                FileMove(A_Temp . "\CursorTip_update.exe", dest, 1)
+                moveOk := true
+                break
+            }
+            Sleep(200)
+        }
+        if (moveOk && dest != applyTarget)
+            try FileDelete(applyTarget)  ; 清理旧版本文件；被占用则留给用户手动删
+        ; 升级器 CWD 在 %TEMP%，日志必须写绝对路径；新实例启动会清空日志，
+        ; 这行只在「新实例没起来」的故障场景下留存可见
+        try FileAppend("CursorTip: Update -> apply " . (moveOk ? "ok (relaunched " . dest . ")" : "fail (move retry exhausted, relaunched old)") . " at " . A_Now . "`n", tgtDir . "\work\debug.log")
+        Run('"' . dest . '"', tgtDir)  ; 工作目录=安装目录，新实例的相对路径 work\debug.log 才落对位置
+    } catch as e {
+        ; 任何意外都把旧版拉起来：旧 exe 全程未动，完整可用（不留坏状态）
+        try FileAppend("CursorTip: Update -> apply error (" . e.Message . ", relaunched old) at " . A_Now . "`n", (tgtDir != "" ? tgtDir : A_Temp) . "\work\debug.log")
+        try if (applyTarget != "")
+            Run('"' . applyTarget . '"', tgtDir)
+    }
+    ExitApp()
+}
 ; 单实例守卫：命名互斥体跨所有版本生效（exe 文件名各异 / .ahk 直跑均互斥）。
 ; 先到者持有且永不退出；后来者在亮出托盘图标之前直接退出——全程零闪烁
 global g_singleInstanceMutex := DllCall("kernel32\CreateMutexW", "ptr", 0, "int", true, "wstr", "CursorTip_SingleInstance", "ptr")
@@ -317,6 +387,11 @@ curLang := (Config.language = "auto") ? DetectLang() : Config.language
 BuildTrayMenu()
 InitMonitors()
 MeasureTipFixedWidth()
+
+; 更新相关启动项（详见「自动更新」段）
+SelfHealStartupPath()                   ; exe 被改名/移动（升级换版本文件名是典型）后重写自启注册表路径
+RestoreUpdateState()                    ; 恢复「已知有新版本」状态，24h 节流期内设置按钮仍可升
+SetTimer(CheckUpdateSilent, -10000)     ; 启动 10s 后静默检查更新（内部 24h 节流，发现新版弹托盘气泡）
 
 return ; 自动执行段结束
 
@@ -407,6 +482,283 @@ SetStartup(enable) {
         }
     }
 }
+
+; ============================================================
+; 自动更新（检查 + 应用内自升级）
+; ============================================================
+; 数据源：GitHub Releases latest API（Draft Release 不见于该 API → publish 后才推送，语义天然正确）。
+; HTTP 引擎统一 System32\curl.exe：隐藏 Run + SetTimer 轮询 ProcessExist，不用任何阻塞调用
+; （AHK 单线程伪线程，Download()/同步 COM 会冻住全部热键）；超时墙防 PID 复用导致轮询永真。
+
+; 更新日志（失败静默：任何写日志异常吞掉，绝不打扰用户）
+UpdLog(msg) {
+    try FileAppend("CursorTip: Update -> " . msg . "`n", "work\debug.log")
+}
+
+; 开机自启路径自愈：exe 被改名/移动（升级换版本文件名是典型）后注册表旧路径已失效，
+; 检测到不一致就重写。仅编译版有意义；注册表无值（未开自启）时不动作
+SelfHealStartupPath() {
+    if !A_IsCompiled
+        return
+    try {
+        regVal := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CursorTip", "")
+        if (regVal != "" && regVal != A_ScriptFullPath)
+            RegWrite(A_ScriptFullPath, "REG_SZ", "HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "CursorTip")
+    } catch {
+    }
+}
+
+; 远端版本是否比当前新：兼容 "v1.2.3" / "1.2.3" / "1.3.0-beta"，取前三段数字逐段比
+IsNewerVersion(remote, cur) {
+    if !RegExMatch(remote, "(\d+)\.(\d+)\.(\d+)", &r)
+        return false
+    RegExMatch(cur, "(\d+)\.(\d+)\.(\d+)", &c)
+    loop 3 {
+        ri := Integer(r[A_Index])
+        ci := Integer(c[A_Index])
+        if (ri != ci)
+            return ri > ci
+    }
+    return false
+}
+
+; 系统 curl 可用性（Win10 1803+ 自带）；static 缓存首次判定
+CurlAvailable() {
+    static ok := -1
+    if (ok = -1)
+        ok := FileExist(A_WinDir . "\System32\curl.exe") ? 1 : 0
+    return ok = 1
+}
+
+; 把更新状态机当前值渲染到设置窗口控件；g 传入时优先用（ShowSettings 重建后 Show 前恢复显示）。
+; 窗口不在时静默跳过（timer 回调里摸已销毁控件会抛错）
+ApplyUpdateUI(g := 0) {
+    global settingsGui, g_updateState, g_updateLatestVer
+    if !IsObject(g)
+        g := settingsGui
+    try if !WinExist("ahk_id " . g.Hwnd)
+        return
+    switch g_updateState {
+        case "checking":
+            g.ctl_updBtn.Enabled := false
+            g.ctl_updBtn.Text := T("btn_check_update")
+            g.ctl_updStatus.Text := T("upd_checking")
+        case "uptodate":
+            g.ctl_updBtn.Enabled := true
+            g.ctl_updBtn.Text := T("btn_check_update")
+            g.ctl_updStatus.Text := T("upd_latest")
+        case "available":
+            g.ctl_updBtn.Enabled := true
+            g.ctl_updBtn.Text := T("btn_upgrade")
+            g.ctl_updStatus.Text := T("upd_new", g_updateLatestVer)
+        case "downloading":
+            g.ctl_updBtn.Enabled := false
+            g.ctl_updBtn.Text := T("btn_upgrade")
+        case "failed":
+            g.ctl_updBtn.Enabled := true
+            g.ctl_updBtn.Text := T("btn_check_update")
+            g.ctl_updStatus.Text := T("upd_failed")
+        default:  ; idle
+            g.ctl_updBtn.Enabled := true
+            g.ctl_updBtn.Text := T("btn_check_update")
+            g.ctl_updStatus.Text := ""
+    }
+}
+
+; 更新按钮点击：按状态机分发（checking/downloading 时按钮本就禁用，双保险）
+OnUpdateButtonClick(ctl, *) {
+    global g_updateState
+    switch g_updateState {
+        case "idle", "uptodate", "failed":
+            StartUpdateCheck("manual")
+        case "available":
+            if !A_IsCompiled {
+                Run("https://github.com/zeno528/CursorTip/releases/latest")  ; 源码直跑：被替换的应是解释器，交给浏览器
+                return
+            }
+            StartUpdateDownload()
+    }
+}
+
+; 静默检查入口（启动 10s 后的 timer）：24h 节流。LastUpdateCheck 记发起时刻，
+; 失败也算查过——网络差的环境每天最多打扰一次网络
+CheckUpdateSilent(*) {
+    last := ""
+    try last := IniRead(Config.Path, "Settings", "LastUpdateCheck", "")
+    if (IsInteger(last) && StrLen(last) = 14) {
+        hours := 999
+        try hours := DateDiff(A_Now, last, "h")
+        if (hours < 24) {
+            UpdLog("check skip (last=" . last . ")")
+            return
+        }
+    }
+    StartUpdateCheck("silent")
+}
+
+; 重启后恢复「已知有新版本」状态（LastUpdateVer 持久化），节流期内设置按钮仍显示可升级
+RestoreUpdateState() {
+    global g_updateState, g_updateLatestVer
+    stored := ""
+    try stored := IniRead(Config.Path, "Settings", "LastUpdateVer", "")
+    if (stored != "" && IsNewerVersion(stored, VERSION)) {
+        g_updateLatestVer := stored
+        g_updateState := "available"
+    }
+}
+
+; 发起一次更新检查（mode: silent=启动静默 / manual=按钮点击）
+StartUpdateCheck(mode) {
+    global g_updateState, g_checkSilent, g_curlPid, g_curlMode, g_curlStart, UPD_API, UPD_TEMP_JSON
+    if (g_updateState = "checking" || g_updateState = "downloading")
+        return
+    if !CurlAvailable() {
+        UpdLog("check fail (no_curl)")
+        if (mode = "manual")
+            Run("https://github.com/zeno528/CursorTip/releases/latest")
+        return
+    }
+    try IniWrite(A_Now, Config.Path, "Settings", "LastUpdateCheck")
+    try FileDelete(UPD_TEMP_JSON)
+    g_updateState := "checking"
+    g_checkSilent := (mode = "silent")
+    g_curlMode := "check"
+    Run('"' . A_WinDir . '\System32\curl.exe" -sfL --max-time 15 -o "' . UPD_TEMP_JSON . '" "' . UPD_API . '"', A_Temp, "Hide", &g_curlPid)
+    g_curlStart := A_TickCount
+    SetTimer(UpdatePoll, 250)
+    UpdLog("check start (mode=" . mode . ", ver=" . VERSION . ")")
+    ApplyUpdateUI()
+}
+
+; 发起升级包下载（「立即升级」）。URL 由 tag 直接拼——release.yml 保证资产名恒为 CursorTip_v$VERSION.exe
+StartUpdateDownload() {
+    global g_updateState, g_curlPid, g_curlMode, g_curlStart, g_updateLatestVer, UPD_TEMP_EXE
+    if !CurlAvailable() {
+        g_updateState := "failed"
+        ApplyUpdateUI()
+        return
+    }
+    try FileDelete(UPD_TEMP_EXE)
+    url := UPD_DL_BASE . "v" . g_updateLatestVer . "/CursorTip_v" . g_updateLatestVer . ".exe"
+    g_updateState := "downloading"
+    g_curlMode := "download"
+    Run('"' . A_WinDir . '\System32\curl.exe" -sfSL --max-time 120 -o "' . UPD_TEMP_EXE . '" "' . url . '"', A_Temp, "Hide", &g_curlPid)
+    g_curlStart := A_TickCount
+    SetTimer(UpdatePoll, 250)
+    UpdLog("download start " . url)
+    ApplyUpdateUI()
+}
+
+; curl 轮询（250ms 一拍）：完成判定 = 进程退出 或 超时墙（check 25s / download 130s，
+; 墙略大于 --max-time，防 PID 被系统复用后 ProcessExist 永真卡死）
+UpdatePoll() {
+    global settingsGui, g_updateState, g_curlPid, g_curlMode, g_curlStart, UPD_TEMP_EXE
+    wall := (g_curlMode = "download") ? 130000 : 25000
+    done := !ProcessExist(g_curlPid) || (A_TickCount - g_curlStart > wall)
+    if !done {
+        ; 下载中把进度写进状态文本（curl 边下边写文件，FileGetSize 即增量）
+        if (g_curlMode = "download" && g_updateState = "downloading"
+            && IsObject(settingsGui) && WinExist("ahk_id " . settingsGui.Hwnd)) {
+            size := 0
+            try size := FileGetSize(UPD_TEMP_EXE)
+            if (size > 0)
+                settingsGui.ctl_updStatus.Text := T("upd_downloading", Round(size / 1048576, 1))
+        }
+        return
+    }
+    SetTimer(UpdatePoll, 0)
+    guiAlive := IsObject(settingsGui) && WinExist("ahk_id " . settingsGui.Hwnd)
+    if (g_curlMode = "check")
+        FinishUpdateCheck()
+    else
+        FinishUpdateDownload()
+    ; 窗口已关：available 保留（重开设置/重启后仍可升），其余归 idle
+    if !guiAlive && g_updateState != "available"
+        g_updateState := "idle"
+    ApplyUpdateUI()
+}
+
+; 检查收尾：解析 tag_name → 比版本 → available（静默触发才弹气泡）/uptodate/failed
+FinishUpdateCheck() {
+    global g_updateState, g_updateLatestVer, g_checkSilent, UPD_TEMP_JSON
+    json := ""
+    try json := FileRead(UPD_TEMP_JSON)
+    try FileDelete(UPD_TEMP_JSON)
+    if !RegExMatch(json, '"tag_name"\s*:\s*"v?([^"]+)"', &m) {
+        g_updateState := "failed"
+        UpdLog("check fail (parse)")
+        return
+    }
+    g_updateLatestVer := m[1]
+    if IsNewerVersion(m[1], VERSION) {
+        g_updateState := "available"
+        try IniWrite(m[1], Config.Path, "Settings", "LastUpdateVer")
+        if (g_checkSilent)
+            TrayTip(T("upd_new", m[1]), "CursorTip")
+        UpdLog("check ok latest=" . m[1] . " (new)")
+    } else {
+        g_updateState := "uptodate"
+        try IniDelete(Config.Path, "Settings", "LastUpdateVer")
+        UpdLog("check ok latest=" . m[1] . " (same)")
+    }
+}
+
+; 下载收尾：校验（大小下限 + MZ 头，第二道闸；-f 已挡 HTTP 错误体）→ 走升级时序
+FinishUpdateDownload() {
+    global g_updateState, UPD_TEMP_EXE
+    size := 0
+    try size := FileGetSize(UPD_TEMP_EXE)
+    magic := ""
+    try {
+        f := FileOpen(UPD_TEMP_EXE, "r")
+        magic := f.Read(2)
+        f.Close()
+    }
+    if (size < 500000 || magic != "MZ") {
+        try FileDelete(UPD_TEMP_EXE)
+        g_updateState := "failed"
+        UpdLog("download fail (invalid, size=" . size . ")")
+        return
+    }
+    UpdLog("download ok (" . size . " bytes)")
+    ApplyUpgrade()
+}
+
+; 三进程升级时序（旧实例侧）：拉起升级器（同 exe 第二实例）→ 1.5s 握手确认存活（防 AV 秒杀，
+; 阻塞冻结热键 ≤1.5s，每次升级仅一次）→ 放互斥体 → 退出。后续搬运全在升级器（启动段顶端）
+ApplyUpgrade() {
+    global g_updateState, UPD_TEMP_EXE, g_singleInstanceMutex
+    target := A_ScriptFullPath
+    oldPid := ProcessExist()  ; 无参 = 自身 PID
+    upPid := 0
+    Run('"' . UPD_TEMP_EXE . '" --update-apply "' . target . '" ' . oldPid, A_Temp, "Hide", &upPid)
+    UpdLog("apply spawn target=" . target . " oldpid=" . oldPid)
+    alive := false
+    loop 5 {
+        Sleep(300)
+        if (ProcessExist(upPid)) {
+            alive := true
+            break
+        }
+    }
+    if !alive {
+        g_updateState := "failed"
+        try FileDelete(UPD_TEMP_EXE)
+        UpdLog("apply spawn died")
+        ApplyUpdateUI()
+        return
+    }
+    ; 同 ReloadApp：显式放单实例互斥体再退（OS 也会随进程释放，这里保一致性）
+    if (g_singleInstanceMutex) {
+        DllCall("kernel32\CloseHandle", "ptr", g_singleInstanceMutex)
+        g_singleInstanceMutex := 0
+    }
+    ExitApp()
+}
+
+; ============================================================
+; 提示窗口管理
+; ============================================================
 
 ; ============================================================
 ; 提示窗口管理
@@ -1062,22 +1414,31 @@ ShowSettings(*) {
 
     TrackBelow(g, g.Add("Text", "x10 y522 w320 h1 BackgroundDDDDDD"))
 
-    ; === 按钮 ===
-    TrackBelow(g, g.Add("Button", "x20 y537 w80", T("btn_reset"))).OnEvent("Click", SettingsReset)
-    TrackBelow(g, g.Add("Button", "x130 y537 w80", T("btn_cancel"))).OnEvent("Click", SettingsClose)
-    TrackBelow(g, g.Add("Button", "x240 y537 w80 Default", T("btn_save"))).OnEvent("Click", SettingsSave)
+    ; === 版本（版本号 + 检查更新，同一行基线对齐）===
+    g.SetFont("Bold")
+    TrackBelow(g, g.Add("Text", "x20 y536", T("about_title") . " (v" . VERSION . ")"))
+    g.SetFont("Norm")
+    g.ctl_updStatus := TrackBelow(g, g.Add("Text", "x130 y536 w106", ""))
+    g.ctl_updBtn := TrackBelow(g, g.Add("Button", "x236 y534 w84 h24", T("btn_check_update")))
+    g.ctl_updBtn.OnEvent("Click", OnUpdateButtonClick)
+    TrackBelow(g, g.Add("Text", "x10 y566 w320 h1 BackgroundDDDDDD"))
+
+    ; === 按钮（永远在窗口最底部）===
+    TrackBelow(g, g.Add("Button", "x20 y577 w80", T("btn_reset"))).OnEvent("Click", SettingsReset)
+    TrackBelow(g, g.Add("Button", "x130 y577 w80", T("btn_cancel"))).OnEvent("Click", SettingsClose)
+    TrackBelow(g, g.Add("Button", "x240 y577 w80 Default", T("btn_save"))).OnEvent("Click", SettingsSave)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    TrackBelow(g, g.Add("Picture", "x20 y577 w16 h16", icoPath)).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
+    TrackBelow(g, g.Add("Picture", "x20 y617 w16 h16", icoPath)).OnEvent("Click", (*) => Run("https://github.com/zeno528/CursorTip"))
     g.SetFont("s8", "Microsoft YaHei")
-    TrackBelow(g, g.Add("Link", "x40 y579", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>'))
-    TrackBelow(g, g.Add("Text", "x200 y579", "© 2026  MIT License"))
+    TrackBelow(g, g.Add("Link", "x40 y619", '<a href="https://github.com/zeno528/CursorTip">' . T("link_about") . '</a>'))
+    TrackBelow(g, g.Add("Text", "x200 y619", "© 2026  MIT License"))
 
     ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
-    showOpts := "w340 h607"   ; 基础高（鼠标段2行）；实际高由 ReflowBelow 按当前段收缩（顶底577/中央547）
+    showOpts := "w340 h" . SETTINGS_BASE_H   ; 基础高（鼠标段2行）；实际高由 ReflowBelow 按当前段收缩（顶底617/中央587）
     if (settingsOpenPos != "")
         showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
     ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
@@ -1089,6 +1450,7 @@ ShowSettings(*) {
         settingsDraft := ""
     }
     ReflowBelow(g)   ; 初始化时 SetPosSegment 早于下方控件创建，显示前按当前段兜底重排一次
+    ApplyUpdateUI(g) ; 语言切换重建后从全局状态机恢复按钮/状态显示
     g.Show(showOpts)
     settingsGui := g
 }
@@ -1280,7 +1642,7 @@ TrackBelow(g, ctl) {
 
 ; 位置面板动态布局：鼠标段2行 / 顶底段1行 / 中央段0行，行距30。下方控件按 (2-行数)*30 上移折叠，
 ; 窗口高同步收缩避免底部留白。绝对定位（基于登记时的基础 Y），可安全重复调用；
-; AddNumSlider 三件套的滑块(y+1)/单位(y+3)随 Edit 同步移动。607 = 基础窗口高（鼠标段2行时）
+; AddNumSlider 三件套的滑块(y+1)/单位(y+3)随 Edit 同步移动。SETTINGS_BASE_H = 基础窗口高（鼠标段2行时）
 ReflowBelow(g) {
     rows := (g.ctl_posSeg = 1) ? 2 : (g.ctl_posSeg = 4) ? 0 : 1
     dy := (2 - rows) * 30
@@ -1296,7 +1658,7 @@ ReflowBelow(g) {
                     it.ctl.Unit.Move(, it.y - dy + 3)
             }
         }
-        g.Move(, , , 607 - dy)
+        g.Move(, , , SETTINGS_BASE_H - dy)
         g.Opt("+Redraw")   ; 恢复重绘并整窗重绘一遍
         ; 强制「擦除+同步重绘」兜底：平移腾空的区域若不擦除，会残留上一帧控件影像（鬼影）
         ; RDW_ERASE|RDW_INVALIDATE|RDW_ALLCHILDREN|RDW_UPDATENOW = 0x4|0x1|0x80|0x100
