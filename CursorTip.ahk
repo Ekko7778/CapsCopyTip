@@ -280,7 +280,7 @@ global g_checkSilent := false       ; 本次检查是否启动静默触发（决
 global g_curlPid := 0               ; 当前 curl 子进程 PID
 global g_curlMode := ""             ; curl 用途：check / download
 global g_curlStart := 0             ; curl 启动时刻（A_TickCount，超时墙基准）
-global UPD_API := "https://api.github.com/repos/zeno528/CursorTip/releases/latest"
+global UPD_API := "https://github.com/zeno528/CursorTip/releases.atom"   ; Atom feed：无 API 60次/h 配额限制，首条=最新 Release
 global UPD_DL_BASE := "https://github.com/zeno528/CursorTip/releases/download/"
 global UPD_TEMP_JSON := A_Temp . "\CursorTip_update.json"
 global UPD_TEMP_EXE := A_Temp . "\CursorTip_update.exe"
@@ -684,7 +684,7 @@ FinishUpdateCheck() {
     json := ""
     try json := FileRead(UPD_TEMP_JSON)
     try FileDelete(UPD_TEMP_JSON)
-    if !RegExMatch(json, '"tag_name"\s*:\s*"v?([^"]+)"', &m) {
+    if !RegExMatch(json, "releases/tag/v?([\d.]+)", &m) {
         g_updateState := "failed"
         UpdLog("check fail (parse)")
         return
