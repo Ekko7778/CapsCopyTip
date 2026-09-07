@@ -19,7 +19,7 @@ A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "1.1.4"
+global VERSION := "1.2.0"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -491,7 +491,10 @@ ShowTip(text, duration := 0, fixedWidth := false) {
                 tipGui.Move(, , ww - cw + tipFixedWidth, wh - ch + tipFixedHeight)
                 DllCall("RedrawWindow", "Ptr", tipGui.Hwnd, "Ptr", 0, "Ptr", 0, "UInt", 0x85)
             }
-            tipGuiText.Value := text
+            ; 文本变了才写：WM_SETTEXT 会触发文字区重绘，位置拖动时内容恒定，
+            ; 每 tick 盲写会让文字区反复重绘产生轻微闪烁
+            if (tipGuiText.Value != text)
+                tipGuiText.Value := text
             tipGui.GetPos(,, &gw, &gh)
             ShowTipAt(gw, gh)
         } else {
