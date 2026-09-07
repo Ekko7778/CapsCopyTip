@@ -36,6 +36,7 @@ class Config {
         copyShowDuration: 800,
         tipPosition: 1,          ; 1=跟随鼠标 2=屏幕中央 3=屏幕顶部 4=屏幕底部
         tipMouseOffset: 20,
+        tipMouseAbove: false,
         tipTopOffset: 50,
         tipBottomOffset: 100,
         tipFontSize: 9,
@@ -52,6 +53,7 @@ class Config {
     static copyShowDuration := 800
     static tipPosition := 1
     static tipMouseOffset := 20
+    static tipMouseAbove := false
     static tipTopOffset := 50
     static tipBottomOffset := 100
     static tipFontSize := 9
@@ -75,6 +77,7 @@ class Config {
 
             c.tipPosition := Integer(IniRead(Config.Path, "Settings", "TipPosition", 1))
             c.tipMouseOffset := Integer(IniRead(Config.Path, "Settings", "TipMouseOffset", 20))
+            c.tipMouseAbove := IniRead(Config.Path, "Settings", "TipMouseAbove", 0) = 1
             c.tipTopOffset := Integer(IniRead(Config.Path, "Settings", "TipTopOffset", 50))
             c.tipBottomOffset := Integer(IniRead(Config.Path, "Settings", "TipBottomOffset", 100))
 
@@ -102,6 +105,7 @@ class Config {
 
             IniWrite(c.tipPosition, Config.Path, "Settings", "TipPosition")
             IniWrite(c.tipMouseOffset, Config.Path, "Settings", "TipMouseOffset")
+            IniWrite(c.tipMouseAbove ? 1 : 0, Config.Path, "Settings", "TipMouseAbove")
             IniWrite(c.tipTopOffset, Config.Path, "Settings", "TipTopOffset")
             IniWrite(c.tipBottomOffset, Config.Path, "Settings", "TipBottomOffset")
 
@@ -142,10 +146,11 @@ global L := Map(
         "set_copy_label", "复制提示:",
         "set_position", "提示位置",
         "pos_mouse", "跟随鼠标",
+        "pos_mouse_br", "右下方",
+        "pos_mouse_tr", "右上方",
         "pos_center", "屏幕中央",
         "pos_top", "屏幕顶部",
         "pos_bottom", "屏幕底部",
-        "set_offset", "偏移:",
         "set_appearance", "外观样式",
         "app_auto", "跟随系统",
         "app_light", "浅色模式",
@@ -187,10 +192,11 @@ global L := Map(
         "set_copy_label", "Copy tip:",
         "set_position", "Position",
         "pos_mouse", "Follow mouse",
+        "pos_mouse_br", "Bottom-right",
+        "pos_mouse_tr", "Top-right",
         "pos_center", "Screen center",
         "pos_top", "Top",
         "pos_bottom", "Bottom",
-        "set_offset", "Offset:",
         "set_appearance", "Appearance",
         "app_auto", "Follow system",
         "app_light", "Light",
@@ -436,7 +442,8 @@ ShowTipAt(gw, gh) {
         case 1:
             CoordMode "Mouse", "Screen"
             MouseGetPos(&mx, &my)
-            tipGui.Show("x" . (mx + c.tipMouseOffset) . " y" . (my + c.tipMouseOffset) . " NA")
+            y := c.tipMouseAbove ? Max(0, my - gh - c.tipMouseOffset) : my + c.tipMouseOffset
+            tipGui.Show("x" . (mx + c.tipMouseOffset) . " y" . y . " NA")
         case 2:
             tipGui.Show("x" . (A_ScreenWidth - gw) / 2 . " y" . (A_ScreenHeight - gh) / 2 . " NA")
         case 3:
@@ -946,11 +953,10 @@ ShowSettings(*) {
     g.SetFont("Norm")
 
     g.Add("Text", "x20 y147 w110", T("set_caps_label"))
-    g.ctl_capsDur := g.Add("Edit", "x200 y144 w60 h22 Number", c.capsShowDuration)
-    g.Add("Text", "x265 y147", "ms")
+    ; 时长滑块量程 100-3000ms 实用区间，更大值可手输（保存仍钳到 99999）
+    g.ctl_capsDur := AddNumSlider(g, "capsDur", 135, 144, 100, 3000, c.capsShowDuration, "ms")
     g.Add("Text", "x20 y177 w110", T("set_copy_label"))
-    g.ctl_copyDur := g.Add("Edit", "x200 y174 w60 h22 Number", c.copyShowDuration)
-    g.Add("Text", "x265 y177", "ms")
+    g.ctl_copyDur := AddNumSlider(g, "copyDur", 135, 174, 100, 3000, c.copyShowDuration, "ms")
 
     g.Add("Text", "x10 y202 w320 h1 BackgroundDDDDDD")
 
@@ -962,33 +968,30 @@ ShowSettings(*) {
     ; Radio 显示顺序: 跟随鼠标 / 屏幕顶部 / 屏幕底部 / 屏幕中央（中央用得少，放最后）
     ; tipPosition 值的含义保持不变（1=鼠标, 2=中央, 3=顶部, 4=底部），仅 Radio 显示顺序与控件->值映射调整
     g.ctl_pos1 := g.Add("Radio", "x20 y239 w120 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
-    g.ctl_pos2 := g.Add("Radio", "x20 y266 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
-    g.ctl_pos3 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
-    g.ctl_pos4 := g.Add("Radio", "x20 y320 w140" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
-    ; 偏移量紧跟 Radio 文字，Radio 最长到 x140（英文"Follow mouse"）
-    g.Add("Text", "x190 y242 w40 Right", T("set_offset"))
-    g.ctl_mouseOffset := g.Add("Edit", "x235 y239 w35 h22 Number", c.tipMouseOffset)
-    g.Add("Text", "x275 y242", "px")
-    g.Add("Text", "x190 y269 w40 Right", T("set_offset"))
-    g.ctl_topOffset := g.Add("Edit", "x235 y266 w35 h22 Number", c.tipTopOffset)
-    g.Add("Text", "x275 y269", "px")
-    g.Add("Text", "x190 y296 w40 Right", T("set_offset"))
-    g.ctl_bottomOffset := g.Add("Edit", "x235 y293 w35 h22 Number", c.tipBottomOffset)
-    g.Add("Text", "x275 y296", "px")
+    ; 跟随鼠标的两个方位选项（tipMouseAbove: 右下=0 / 右上=1），仅鼠标模式生效
+    g.ctl_mouseBr := g.Add("Radio", "x40 y266 w110 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
+    g.ctl_mouseTr := g.Add("Radio", "x155 y266 w110" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
+    g.ctl_pos2 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
+    g.ctl_pos3 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
+    g.ctl_pos4 := g.Add("Radio", "x20 y347 w140" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
+    ; 偏移滑块从 x150 起（Radio 文字最长到 x140）：[滑块][Edit][px]
+    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 150, 239, 0, 100, c.tipMouseOffset, "px")
+    g.ctl_topOffset := AddNumSlider(g, "topOffset", 150, 293, 0, 500, c.tipTopOffset, "px")
+    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 150, 320, 0, 500, c.tipBottomOffset, "px")
 
-    g.Add("Text", "x10 y350 w320 h1 BackgroundDDDDDD")
+    g.Add("Text", "x10 y377 w320 h1 BackgroundDDDDDD")
 
     ; === 外观样式 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y362", T("set_appearance"))
+    g.Add("Text", "x20 y389", T("set_appearance"))
     g.SetFont("Norm")
 
-    g.ctl_themeAuto := g.Add("Radio", "x20 y387 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto"))
-    g.ctl_lightMode := g.Add("Radio", "x20 y414 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
-    g.ctl_darkMode := g.Add("Radio", "x200 y414 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
-    g.Add("Text", "x20 y444 w70", T("set_fontsize"))
-    g.ctl_fontSize := g.Add("Edit", "x95 y441 w40 h22 Number", c.tipFontSize)
-    g.ctl_bold := g.Add("CheckBox", "x200 y444 w60", T("set_bold"))
+    g.ctl_themeAuto := g.Add("Radio", "x20 y414 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto"))
+    g.ctl_lightMode := g.Add("Radio", "x20 y441 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
+    g.ctl_darkMode := g.Add("Radio", "x200 y441 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
+    g.Add("Text", "x20 y471 w70", T("set_fontsize"))
+    g.ctl_fontSize := AddNumSlider(g, "fontSize", 95, 468, 8, 72, c.tipFontSize)
+    g.ctl_bold := g.Add("CheckBox", "x254 y471 w60", T("set_bold"))
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 实时预览：视觉控件改动立即按未保存设置显示 tip，不写盘（保存才落定，取消回滚）===
@@ -996,6 +999,8 @@ ShowSettings(*) {
     g.ctl_pos2.OnEvent("Click", MakePreviewCb("pos"))
     g.ctl_pos3.OnEvent("Click", MakePreviewCb("pos"))
     g.ctl_pos4.OnEvent("Click", MakePreviewCb("pos"))
+    g.ctl_mouseBr.OnEvent("Click", MakePreviewCb("mouseAbove"))
+    g.ctl_mouseTr.OnEvent("Click", MakePreviewCb("mouseAbove"))
     g.ctl_mouseOffset.OnEvent("Change", MakePreviewCb("mouseOffset"))
     g.ctl_topOffset.OnEvent("Change", MakePreviewCb("topOffset"))
     g.ctl_bottomOffset.OnEvent("Change", MakePreviewCb("bottomOffset"))
@@ -1008,29 +1013,29 @@ ShowSettings(*) {
     g.ctl_copyDur.OnEvent("Change", MakePreviewCb("copyDur"))
 
     ; === 语言 ===
-    g.Add("Text", "x20 y474 w80", T("set_language"))
+    g.Add("Text", "x20 y501 w80", T("set_language"))
     langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
-    g.ctl_lang := g.Add("DDL", "x200 y471 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
+    g.ctl_lang := g.Add("DDL", "x200 y498 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
     g.ctl_lang.OnEvent("Change", OnLangChange)
 
-    g.Add("Text", "x10 y502 w320 h1 BackgroundDDDDDD")
+    g.Add("Text", "x10 y529 w320 h1 BackgroundDDDDDD")
 
     ; === 按钮 ===
-    g.Add("Button", "x20 y517 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
-    g.Add("Button", "x130 y517 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
-    g.Add("Button", "x240 y517 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
+    g.Add("Button", "x20 y544 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
+    g.Add("Button", "x130 y544 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
+    g.Add("Button", "x240 y544 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    g.Add("Picture", "x20 y557 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
+    g.Add("Picture", "x20 y584 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y559", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>')
-    g.Add("Text", "x200 y559", "© 2026  MIT License")
+    g.Add("Link", "x40 y586", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>')
+    g.Add("Text", "x200 y586", "© 2026  MIT License")
 
     ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
-    showOpts := "w340 h587"
+    showOpts := "w340 h614"
     if (settingsOpenPos != "")
         showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
     ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
@@ -1090,6 +1095,7 @@ SnapshotSettings(g) {
         pos1: g.ctl_pos1.Value, pos2: g.ctl_pos2.Value,
         pos3: g.ctl_pos3.Value, pos4: g.ctl_pos4.Value,
         mouseOffset: g.ctl_mouseOffset.Value,
+        mouseAbove: g.ctl_mouseTr.Value,
         topOffset: g.ctl_topOffset.Value,
         bottomOffset: g.ctl_bottomOffset.Value,
         fontSize: g.ctl_fontSize.Value,
@@ -1114,6 +1120,8 @@ RestoreSettings(g, s) {
     g.ctl_pos3.Value := s.pos3
     g.ctl_pos4.Value := s.pos4
     g.ctl_mouseOffset.Value := s.mouseOffset
+    g.ctl_mouseBr.Value := !s.mouseAbove
+    g.ctl_mouseTr.Value := s.mouseAbove
     g.ctl_topOffset.Value := s.topOffset
     g.ctl_bottomOffset.Value := s.bottomOffset
     g.ctl_fontSize.Value := s.fontSize
@@ -1130,6 +1138,7 @@ SnapshotConfig() {
     return {
         tipPosition:      c.tipPosition,
         tipMouseOffset:   c.tipMouseOffset,
+        tipMouseAbove:    c.tipMouseAbove,
         tipTopOffset:     c.tipTopOffset,
         tipBottomOffset:  c.tipBottomOffset,
         tipFontSize:      c.tipFontSize,
@@ -1144,6 +1153,7 @@ RestoreConfig(snap) {
     c := Config
     c.tipPosition      := snap.tipPosition
     c.tipMouseOffset   := snap.tipMouseOffset
+    c.tipMouseAbove    := snap.tipMouseAbove
     c.tipTopOffset     := snap.tipTopOffset
     c.tipBottomOffset  := snap.tipBottomOffset
     c.tipFontSize      := snap.tipFontSize
@@ -1168,6 +1178,22 @@ MakePreviewCb(kind) {
     return (ctl, *) => OnPreviewChange(ctl, kind)
 }
 
+; 数值组合控件：[滑块][输入框][单位] 双向同步，任一改动走 OnPreviewChange(kind) 实时预览
+; 程序设 .Value 不触发 Change 事件（仅用户操作触发，见 v2-changes 文档），双向回写无死循环
+; 返回 Edit 控件：外部按 ctl_xxx.Value 读写，SettingsSave/Reset/快照逻辑零改动
+AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "") {
+    ; INI 值超程时滑块顶格，Edit 保留原值（保存钳制逻辑不变）
+    ctlSld := g.Add("Slider", "x" x " y" (y + 1) " w105 h22 Range" minV "-" maxV " NoTicks", Max(minV, Min(maxV, val)))
+    ctlEdit := g.Add("Edit", "x" (x + 109) " y" y " w42 h22 Number", val)
+    if (unit != "")
+        g.Add("Text", "x" (x + 155) " y" (y + 3), unit)
+    ctlSld.OnEvent("Change", (sld, *) => (ctlEdit.Value := sld.Value, OnPreviewChange(sld, kind)))
+    ctlEdit.OnEvent("Change", (ed, *) => (
+        ctlSld.Value := Max(minV, Min(maxV, IsInteger(ed.Value) ? Integer(ed.Value) : minV)),
+        OnPreviewChange(ed, kind)))
+    return ctlEdit
+}
+
 ; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测宽度 → 销毁旧 tip → 显示预览 tip
 OnPreviewChange(ctl, kind) {
     g := ctl.Gui
@@ -1178,6 +1204,7 @@ OnPreviewChange(ctl, kind) {
         case "pos":                           ; pos1→1(鼠标) pos2→3(顶部) pos3→4(底部) pos4→2(中央)
             c.tipPosition := g.ctl_pos1.Value ? 1 : (g.ctl_pos2.Value ? 3 : (g.ctl_pos3.Value ? 4 : 2))
         case "mouseOffset":  c.tipMouseOffset  := ClampNum(g.ctl_mouseOffset.Value,  0, 100, 20)
+        case "mouseAbove":   c.tipMouseAbove   := g.ctl_mouseTr.Value
         case "topOffset":    c.tipTopOffset    := ClampNum(g.ctl_topOffset.Value,    0, 500, 50)
         case "bottomOffset": c.tipBottomOffset := ClampNum(g.ctl_bottomOffset.Value, 0, 500, 100)
         case "fontSize":
@@ -1210,6 +1237,7 @@ SettingsClose(ctrlOrGui, *) {
     if (IsObject(settingsConfigSnap)) {
         snap := settingsConfigSnap, c := Config
         if (c.tipPosition != snap.tipPosition || c.tipMouseOffset != snap.tipMouseOffset
+            || c.tipMouseAbove != snap.tipMouseAbove
             || c.tipTopOffset != snap.tipTopOffset || c.tipBottomOffset != snap.tipBottomOffset
             || c.tipFontSize != snap.tipFontSize || c.tipFontBold != snap.tipFontBold
             || c.tipLightMode != snap.tipLightMode
@@ -1256,6 +1284,8 @@ SettingsReset(ctrl, *) {
     g.ctl_pos3.Value := (d.tipPosition = 4)
     g.ctl_pos4.Value := (d.tipPosition = 2)
     g.ctl_mouseOffset.Value := d.tipMouseOffset
+    g.ctl_mouseBr.Value := !d.tipMouseAbove
+    g.ctl_mouseTr.Value := d.tipMouseAbove
     g.ctl_topOffset.Value := d.tipTopOffset
     g.ctl_bottomOffset.Value := d.tipBottomOffset
 
@@ -1295,6 +1325,7 @@ SettingsSave(ctrl, *) {
         c.tipPosition := 1
 
     c.tipMouseOffset := Max(0, Min(100, Integer(g.ctl_mouseOffset.Value || 20)))
+    c.tipMouseAbove := g.ctl_mouseTr.Value
     c.tipTopOffset := Max(0, Min(500, Integer(g.ctl_topOffset.Value || 50)))
     c.tipBottomOffset := Max(0, Min(500, Integer(g.ctl_bottomOffset.Value || 100)))
 
