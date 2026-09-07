@@ -146,8 +146,8 @@ global L := Map(
         "set_copy_label", "复制提示:",
         "set_position", "提示位置",
         "pos_mouse", "跟随鼠标",
-        "pos_mouse_br", "右下方",
-        "pos_mouse_tr", "右上方",
+        "pos_mouse_br", "右下",
+        "pos_mouse_tr", "右上",
         "pos_center", "屏幕中央",
         "pos_top", "屏幕顶部",
         "pos_bottom", "屏幕底部",
@@ -1014,11 +1014,12 @@ ShowSettings(*) {
 
     ; 参数面板：滑块统一居左（x20 同一列），鼠标段方位选项居右（显式 h22 与输入框同高对齐，
     ; 且控件底边不得压到下方分割线——YaHei 下 radio 自动高约 28px，悬停重绘会吃线）；中央段无参数
-    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 20, 282, 0, 100, c.tipMouseOffset, "px")
+    ; 滑块 x14：Slider 控件轨道有内边距，左移后视觉上与上方选项条左缘对齐
+    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 14, 282, 0, 100, c.tipMouseOffset, "px")
     g.ctl_mouseBr := g.Add("Radio", "x205 y282 h22 w58 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
     g.ctl_mouseTr := g.Add("Radio", "x266 y282 h22 w58" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
-    g.ctl_topOffset := AddNumSlider(g, "topOffset", 20, 282, 0, 500, c.tipTopOffset, "px")
-    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 20, 282, 0, 500, c.tipBottomOffset, "px")
+    g.ctl_topOffset := AddNumSlider(g, "topOffset", 14, 282, 0, 500, c.tipTopOffset, "px")
+    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 14, 282, 0, 500, c.tipBottomOffset, "px")
     SetPosSegment(g, PosSegOf(c.tipPosition))   ; 初始化激活段（含面板显隐）
 
     g.Add("Text", "x10 y310 w320 h1 BackgroundDDDDDD")
@@ -1032,8 +1033,8 @@ ShowSettings(*) {
     g.ctl_lightMode := g.Add("Radio", "x20 y374 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
     g.ctl_darkMode := g.Add("Radio", "x200 y374 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
     g.Add("Text", "x20 y404 w70", T("set_fontsize"))
-    g.ctl_fontSize := AddNumSlider(g, "fontSize", 95, 401, 8, 72, c.tipFontSize)
-    g.ctl_bold := g.Add("CheckBox", "x254 y404 w60", T("set_bold"))
+    g.ctl_bold := g.Add("CheckBox", "x80 y404 w58", T("set_bold"))
+    g.ctl_fontSize := AddNumSlider(g, "fontSize", 145, 401, 8, 72, c.tipFontSize, "pt")
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 实时预览：视觉控件改动立即按未保存设置显示 tip，不写盘（保存才落定，取消回滚）===
