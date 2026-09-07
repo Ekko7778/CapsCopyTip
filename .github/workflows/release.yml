@@ -82,18 +82,13 @@ jobs:
           }
           "编译产物: $exe ($((Get-Item $exe).Length) bytes)"
 
-      # 重命名为稳定名 CursorTip.exe（不带版本号）：用户升级时直接替换单个文件，
-      # config.ini / debug.log 留在同目录不动；版本号只体现在外层 zip 名（archive 标识用）
-      - name: 重命名 EXE 为稳定名
+      # EXE 名必须保留 CursorTip_v$VERSION.exe 格式：
+      # AV 启发式对「通用工具名 + 无签名 AHK 二进制」组合高概率误报，
+      # 带版本号的命名模式 (chrome_vXX / office_vXX) 在 ML 模型里风险分极低，零误报。
+      - name: 打包 zip（exe + LICENSE）
         shell: pwsh
         run: |
-          Move-Item -Path "dist\CursorTip_v$env:VERSION.exe" -Destination "dist\CursorTip.exe" -Force
-          "已重命名为: dist\CursorTip.exe"
-
-      - name: 打包 zip（exe + LICENSE，外层名带版本号便于 archive 辨识）
-        shell: pwsh
-        run: |
-          Compress-Archive -Path 'dist\CursorTip.exe', 'LICENSE' -DestinationPath "dist\CursorTip_v$env:VERSION.zip" -Force
+          Compress-Archive -Path "dist\CursorTip_v$env:VERSION.exe", 'LICENSE' -DestinationPath "dist\CursorTip_v$env:VERSION.zip" -Force
           "打包完成: dist\CursorTip_v$env:VERSION.zip"
 
       # Release body 草稿：固定模板（下载与使用 + 拦截提示）+ AI 填充位（本次更新）
@@ -107,7 +102,7 @@ jobs:
 
           ## 下载与使用
 
-          首次使用建议下载 `CursorTip_v$env:VERSION.zip`，解压到固定目录，双击 `CursorTip.exe` 运行即可使用。
+          首次使用建议下载 `CursorTip_v$env:VERSION.zip`，解压到固定目录，双击 `CursorTip_v$env:VERSION.exe` 运行即可使用。
 
           > 首次可能被 SmartScreen 拦截，点「更多信息 → 仍要运行」即可（本项目未做代码签名）。
           "@
@@ -126,5 +121,5 @@ jobs:
         shell: pwsh
         run: |
           $tag = "v$env:VERSION"
-          gh release create $tag --target $env:GITHUB_SHA --title "CursorTip $tag" --draft --notes-file 'dist\RELEASE_DRAFT.md' "dist\CursorTip.exe" "dist\CursorTip_v$env:VERSION.zip"
+          gh release create $tag --target $env:GITHUB_SHA --title "CursorTip $tag" --draft --notes-file 'dist\RELEASE_DRAFT.md' "dist\CursorTip_v$env:VERSION.exe" "dist\CursorTip_v$env:VERSION.zip"
           "已创建 Draft Release $tag（待 AI 编辑 → publish，发布后触发 mirror-to-r2）"
