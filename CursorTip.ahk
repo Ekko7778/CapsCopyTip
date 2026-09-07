@@ -1424,8 +1424,8 @@ ShowSettings(*) {
     g.SetFont("Bold")
     TrackBelow(g, g.Add("Text", "x20 y536", T("about_title") . " (v" . VERSION . ")"))
     g.SetFont("Norm")
-    g.ctl_updStatus := TrackBelow(g, g.Add("Text", "x130 y536 w106", ""))
-    g.ctl_updBtn := TrackBelow(g, g.Add("Button", "x236 y534 w84 h24", T("btn_check_update")))
+    g.ctl_updStatus := TrackBelow(g, g.Add("Text", "x130 y536 w114", ""))   ; w114 容纳「发现新版本 v1.3.1」不裁字
+    g.ctl_updBtn := TrackBelow(g, g.Add("Button", "x244 y534 w76 h24", T("btn_check_update")))
     g.ctl_updBtn.OnEvent("Click", OnUpdateButtonClick)
     TrackBelow(g, g.Add("Text", "x10 y566 w320 h1 BackgroundDDDDDD"))
 
@@ -1456,8 +1456,10 @@ ShowSettings(*) {
         settingsDraft := ""
     }
     ReflowBelow(g)   ; 初始化时 SetPosSegment 早于下方控件创建，显示前按当前段兜底重排一次
-    ApplyUpdateUI(g) ; 语言切换重建后从全局状态机恢复按钮/状态显示
+    ; ApplyUpdateUI 必须在 Show 之后调：其 WinExist 守卫在 DetectHiddenWindows 关闭时
+    ; 找不到未显示的窗口，放 Show 前会静默跳过，按钮被打回默认文案（与状态机脱钩，已踩坑）
     g.Show(showOpts)
+    ApplyUpdateUI(g)
     settingsGui := g
 }
 
