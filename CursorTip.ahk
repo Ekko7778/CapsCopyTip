@@ -19,7 +19,7 @@ A_HotkeyInterval := 0  ; 禁用热键频率限制警告（按住 Ctrl/Win 等修
 ; ============================================================
 ; 版本
 ; ============================================================
-global VERSION := "1.2.0"
+global VERSION := "1.2.1"
 
 ; ============================================================
 ; 配置管理类 — 统一管理所有配置项
@@ -191,10 +191,10 @@ global L := Map(
         "set_caps_label", "CapsLock tip:",
         "set_copy_label", "Copy tip:",
         "set_position", "Position",
-        "pos_mouse", "Follow mouse",
-        "pos_mouse_br", "Bottom-right",
-        "pos_mouse_tr", "Top-right",
-        "pos_center", "Screen center",
+        "pos_mouse", "Mouse",
+        "pos_mouse_br", "Below",
+        "pos_mouse_tr", "Above",
+        "pos_center", "Center",
         "pos_top", "Top",
         "pos_bottom", "Bottom",
         "set_appearance", "Appearance",
@@ -995,43 +995,48 @@ ShowSettings(*) {
     g.Add("Text", "x20 y214", T("set_position"))
     g.SetFont("Norm")
 
-    ; 位置 Radio 一组（+Group 起组，同组成员须连续创建）：跟随鼠标 / 顶部 / 底部 / 中央，单一激活
-    ; tipPosition 值的含义保持不变（1=鼠标, 2=中央, 3=顶部, 4=底部），仅 Radio 显示顺序与控件->值映射调整
-    g.ctl_pos1 := g.Add("Radio", "x20 y239 w120 +Group" . (c.tipPosition = 1 ? " Checked" : ""), T("pos_mouse"))
-    g.ctl_pos2 := g.Add("Radio", "x20 y293 w100" . (c.tipPosition = 3 ? " Checked" : ""), T("pos_top"))
-    g.ctl_pos3 := g.Add("Radio", "x20 y320 w100" . (c.tipPosition = 4 ? " Checked" : ""), T("pos_bottom"))
-    g.ctl_pos4 := g.Add("Radio", "x20 y347 w140" . (c.tipPosition = 2 ? " Checked" : ""), T("pos_center"))
-    ; 跟随鼠标的方位选项：独立一组（+Group 开新组），仅鼠标模式生效（tipMouseAbove: 右下=0 / 右上=1）
-    g.ctl_mouseBr := g.Add("Radio", "x40 y266 w110 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
-    g.ctl_mouseTr := g.Add("Radio", "x155 y266 w110" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
-    ; 非「跟随鼠标」模式隐藏方位子选项（位置 radio 点击经 OnPosClick 联动显隐）
-    if (c.tipPosition != 1)
-        g.ctl_mouseBr.Visible := g.ctl_mouseTr.Visible := false
-    ; 偏移滑块从 x150 起（Radio 文字最长到 x140）：[滑块][Edit][px]
-    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 150, 239, 0, 100, c.tipMouseOffset, "px")
-    g.ctl_topOffset := AddNumSlider(g, "topOffset", 150, 293, 0, 500, c.tipTopOffset, "px")
-    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 150, 320, 0, 500, c.tipBottomOffset, "px")
+    ; 位置分段选项条（Win11 分段控件样式）：每段两块实底 Text 叠放（激活=蓝底粗体 / 未激活=灰底），
+    ; 点击切显隐。无 BackgroundTrans、无控件移动 → 无重绘伪影。序号→tipPosition: 1鼠标/2顶部/3底部/4中央
+    g.Add("Text", "x20 y240 w300 h26 BackgroundE3E6E8")   ; 条底座
+    g.ctl_posSegs := []
+    segKeys := ["pos_mouse", "pos_top", "pos_bottom", "pos_center"]
+    loop 4 {
+        x := 21 + (A_Index - 1) * 75
+        onCtrl := g.Add("Text", "x" x " y241 w72 h24 Center +0x200 BackgroundCCE4F7 c0067C4", T(segKeys[A_Index]))
+        onCtrl.SetFont("Bold")   ; v2 字体样式不能放创建选项，只能 SetFont
+        offCtrl := g.Add("Text", "x" x " y241 w72 h24 Center +0x200 BackgroundECECEC c444444", T(segKeys[A_Index]))
+        onCtrl.Visible := false
+        onCtrl.SegIdx := A_Index, offCtrl.SegIdx := A_Index
+        onCtrl.OnEvent("Click", OnPosSegClick), offCtrl.OnEvent("Click", OnPosSegClick)
+        g.ctl_posSegs.Push({on: onCtrl, off: offCtrl})
+        RoundCtrl(onCtrl, 72, 24, 12)   ; r12 = 高度一半，胶囊形
+    }
 
-    g.Add("Text", "x10 y377 w320 h1 BackgroundDDDDDD")
+    ; 参数面板：滑块统一居左（x20 同一列），鼠标段方位选项居右（显式 h22 与输入框同高对齐，
+    ; 且控件底边不得压到下方分割线——YaHei 下 radio 自动高约 28px，悬停重绘会吃线）；中央段无参数
+    g.ctl_mouseOffset := AddNumSlider(g, "mouseOffset", 20, 282, 0, 100, c.tipMouseOffset, "px")
+    g.ctl_mouseBr := g.Add("Radio", "x205 y282 h22 w58 +Group" . (!c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_br"))
+    g.ctl_mouseTr := g.Add("Radio", "x266 y282 h22 w58" . (c.tipMouseAbove ? " Checked" : ""), T("pos_mouse_tr"))
+    g.ctl_topOffset := AddNumSlider(g, "topOffset", 20, 282, 0, 500, c.tipTopOffset, "px")
+    g.ctl_bottomOffset := AddNumSlider(g, "bottomOffset", 20, 282, 0, 500, c.tipBottomOffset, "px")
+    SetPosSegment(g, PosSegOf(c.tipPosition))   ; 初始化激活段（含面板显隐）
+
+    g.Add("Text", "x10 y310 w320 h1 BackgroundDDDDDD")
 
     ; === 外观样式 ===
     g.SetFont("Bold")
-    g.Add("Text", "x20 y389", T("set_appearance"))
+    g.Add("Text", "x20 y322", T("set_appearance"))
     g.SetFont("Norm")
 
-    g.ctl_themeAuto := g.Add("Radio", "x20 y414 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto"))
-    g.ctl_lightMode := g.Add("Radio", "x20 y441 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
-    g.ctl_darkMode := g.Add("Radio", "x200 y441 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
-    g.Add("Text", "x20 y471 w70", T("set_fontsize"))
-    g.ctl_fontSize := AddNumSlider(g, "fontSize", 95, 468, 8, 72, c.tipFontSize)
-    g.ctl_bold := g.Add("CheckBox", "x254 y471 w60", T("set_bold"))
+    g.ctl_themeAuto := g.Add("Radio", "x20 y347 w120 +Group" . (c.tipLightMode = "auto" ? " Checked" : ""), T("app_auto"))
+    g.ctl_lightMode := g.Add("Radio", "x20 y374 w100" . (c.tipLightMode = "light" ? " Checked" : ""), T("app_light"))
+    g.ctl_darkMode := g.Add("Radio", "x200 y374 w100" . (c.tipLightMode = "dark" ? " Checked" : ""), T("app_dark"))
+    g.Add("Text", "x20 y404 w70", T("set_fontsize"))
+    g.ctl_fontSize := AddNumSlider(g, "fontSize", 95, 401, 8, 72, c.tipFontSize)
+    g.ctl_bold := g.Add("CheckBox", "x254 y404 w60", T("set_bold"))
     g.ctl_bold.Value := c.tipFontBold
 
     ; === 实时预览：视觉控件改动立即按未保存设置显示 tip，不写盘（保存才落定，取消回滚）===
-    g.ctl_pos1.OnEvent("Click", OnPosClick)
-    g.ctl_pos2.OnEvent("Click", OnPosClick)
-    g.ctl_pos3.OnEvent("Click", OnPosClick)
-    g.ctl_pos4.OnEvent("Click", OnPosClick)
     g.ctl_mouseBr.OnEvent("Click", MakePreviewCb("mouseAbove"))
     g.ctl_mouseTr.OnEvent("Click", MakePreviewCb("mouseAbove"))
     g.ctl_mouseOffset.OnEvent("Change", MakePreviewCb("mouseOffset"))
@@ -1046,29 +1051,29 @@ ShowSettings(*) {
     g.ctl_copyDur.OnEvent("Change", MakePreviewCb("copyDur"))
 
     ; === 语言 ===
-    g.Add("Text", "x20 y501 w80", T("set_language"))
+    g.Add("Text", "x20 y434 w80", T("set_language"))
     langIdx := Map("auto",1,"zh",2,"en",3)[Config.language]
-    g.ctl_lang := g.Add("DDL", "x200 y498 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
+    g.ctl_lang := g.Add("DDL", "x200 y431 w120 AltSubmit Choose" . langIdx, [T("lang_auto"), T("lang_zh"), T("lang_en")])
     g.ctl_lang.OnEvent("Change", OnLangChange)
 
-    g.Add("Text", "x10 y529 w320 h1 BackgroundDDDDDD")
+    g.Add("Text", "x10 y462 w320 h1 BackgroundDDDDDD")
 
     ; === 按钮 ===
-    g.Add("Button", "x20 y544 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
-    g.Add("Button", "x130 y544 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
-    g.Add("Button", "x240 y544 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
+    g.Add("Button", "x20 y477 w80", T("btn_reset")).OnEvent("Click", SettingsReset)
+    g.Add("Button", "x130 y477 w80", T("btn_cancel")).OnEvent("Click", SettingsClose)
+    g.Add("Button", "x240 y477 w80 Default", T("btn_save")).OnEvent("Click", SettingsSave)
     g.OnEvent("Close", SettingsClose)
 
     ; 底部信息
     icoPath := A_Temp . "\CursorTip_github.ico"
     FileInstall("assets\github.ico", icoPath, 1)
-    g.Add("Picture", "x20 y584 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
+    g.Add("Picture", "x20 y517 w16 h16", icoPath).OnEvent("Click", (*) => Run("https://cursortip-website.pages.dev/"))
     g.SetFont("s8", "Microsoft YaHei")
-    g.Add("Link", "x40 y586", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>')
-    g.Add("Text", "x200 y586", "© 2026  MIT License")
+    g.Add("Link", "x40 y519", '<a href="https://cursortip-website.pages.dev/">' . T("link_about") . '</a>')
+    g.Add("Text", "x200 y519", "© 2026  MIT License")
 
     ; 有记忆位置就在原位显示（切语言重建时新窗口完整覆盖旧窗口，消除空帧/灰线）
-    showOpts := "w340 h614"
+    showOpts := "w340 h547"
     if (settingsOpenPos != "")
         showOpts .= " x" . settingsOpenPos[1] . " y" . settingsOpenPos[2]
     ; 禁用 DWM 窗口过渡动画（DWMWA_TRANSITIONS_FORCEDISABLED=3）：新窗口瞬间不透明显示，
@@ -1125,8 +1130,7 @@ SnapshotSettings(g) {
         copy: g.ctl_copy.Value,
         capsDur: g.ctl_capsDur.Value,
         copyDur: g.ctl_copyDur.Value,
-        pos1: g.ctl_pos1.Value, pos2: g.ctl_pos2.Value,
-        pos3: g.ctl_pos3.Value, pos4: g.ctl_pos4.Value,
+        posSeg: g.ctl_posSeg,
         mouseOffset: g.ctl_mouseOffset.Value,
         mouseAbove: g.ctl_mouseTr.Value,
         topOffset: g.ctl_topOffset.Value,
@@ -1148,10 +1152,7 @@ RestoreSettings(g, s) {
     g.ctl_copy.Value := s.copy
     g.ctl_capsDur.Value := s.capsDur
     g.ctl_copyDur.Value := s.copyDur
-    g.ctl_pos1.Value := s.pos1
-    g.ctl_pos2.Value := s.pos2
-    g.ctl_pos3.Value := s.pos3
-    g.ctl_pos4.Value := s.pos4
+    SetPosSegment(g, s.posSeg)
     g.ctl_mouseOffset.Value := s.mouseOffset
     g.ctl_mouseBr.Value := !s.mouseAbove
     g.ctl_mouseTr.Value := s.mouseAbove
@@ -1219,8 +1220,10 @@ AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "") {
     ; AltSubmit：默认 Change 仅在松手时触发（官方文档），加它才能拖动中高频触发→数值/预览实时跟手
     ctlSld := g.Add("Slider", "x" x " y" (y + 1) " w105 h22 Range" minV "-" maxV " NoTicks AltSubmit", Max(minV, Min(maxV, val)))
     ctlEdit := g.Add("Edit", "x" (x + 109) " y" y " w42 h22 Number", val)
-    if (unit != "")
-        g.Add("Text", "x" (x + 155) " y" (y + 3), unit)
+    unitCtl := (unit != "") ? g.Add("Text", "x" (x + 155) " y" (y + 3), unit) : ""
+    ; 三件套挂到 Edit 上，供参数面板整体显隐（SyncPositionPanel）
+    ctlEdit.Slider := ctlSld
+    ctlEdit.Unit := unitCtl
     ctlSld.OnEvent("Change", (sld, *) => (ctlEdit.Value := sld.Value, OnPreviewChange(sld, kind)))
     ctlEdit.OnEvent("Change", (ed, *) => (
         ctlSld.Value := Max(minV, Min(maxV, IsInteger(ed.Value) ? Integer(ed.Value) : minV)),
@@ -1228,13 +1231,51 @@ AddNumSlider(g, kind, x, y, minV, maxV, val, unit := "") {
     return ctlEdit
 }
 
-; 位置 radio 点击：非「跟随鼠标」时隐藏方位子选项，消除歧义；其余照常预览
-OnPosClick(ctl, *) {
-    g := ctl.Gui
-    v := g.ctl_pos1.Value
-    g.ctl_mouseBr.Visible := v
-    g.ctl_mouseTr.Visible := v
+; 滑块三件套（滑块/输入框/单位）整体显隐
+SetSliderVisible(ctl, vis) {
+    ctl.Visible := vis
+    ctl.Slider.Visible := vis
+    if (ctl.Unit != "")
+        ctl.Unit.Visible := vis
+}
+
+; tipPosition → 选项条序号（1鼠标/2顶部/3底部/4中央）
+PosSegOf(pos) {
+    return Map(1, 1, 3, 2, 4, 3, 2, 4)[pos]
+}
+
+; 选项条切到第 idx 段：切换各段蓝/灰底显隐 + 切参数面板（点击/初始化/恢复默认共用）
+SetPosSegment(g, idx) {
+    g.ctl_posSeg := idx
+    loop g.ctl_posSegs.Length {
+        seg := g.ctl_posSegs[A_Index]
+        active := A_Index = idx
+        seg.on.Visible := active
+        seg.off.Visible := !active
+    }
+    SyncPositionPanel(g)
+}
+
+; 按选中段显隐参数面板（1鼠标 2顶部 3底部 4中央-无参数）
+SyncPositionPanel(g) {
+    idx := g.ctl_posSeg
+    SetSliderVisible(g.ctl_mouseOffset, idx = 1)
+    SetSliderVisible(g.ctl_topOffset, idx = 2)
+    SetSliderVisible(g.ctl_bottomOffset, idx = 3)
+    g.ctl_mouseBr.Visible := g.ctl_mouseTr.Visible := (idx = 1)
+}
+
+; 位置分段条点击：切换激活段 + 照常预览
+OnPosSegClick(ctl, *) {
+    SetPosSegment(ctl.Gui, ctl.SegIdx)
     OnPreviewChange(ctl, "pos")
+}
+
+; 控件圆角裁剪（SetWindowRgn；w/h 为逻辑像素，按窗口 DPI 换算物理像素）
+RoundCtrl(ctrl, w, h, r) {
+    s := DllCall("user32\GetDpiForWindow", "Ptr", ctrl.Gui.Hwnd, "UInt") / 96
+    rgn := DllCall("gdi32\CreateRoundRectRgn", "Int", 0, "Int", 0, "Int", Round(w * s), "Int", Round(h * s), "Int", Round(r * s), "Int", Round(r * s), "Ptr")
+    DllCall("user32\SetWindowRgn", "Ptr", ctrl.Hwnd, "Ptr", rgn, "Int", true)
 }
 
 ; 实时预览：把控件当前值写进 Config 内存（不写盘）→ 按需重测尺寸 → 显示预览 tip
@@ -1244,8 +1285,8 @@ OnPreviewChange(ctl, kind) {
     needMeasure := false   ; 只有字号/粗细变化才需重测 tipFixedWidth/Height
 
     switch kind {
-        case "pos":                           ; pos1→1(鼠标) pos2→3(顶部) pos3→4(底部) pos4→2(中央)
-            c.tipPosition := g.ctl_pos1.Value ? 1 : (g.ctl_pos2.Value ? 3 : (g.ctl_pos3.Value ? 4 : 2))
+        case "pos":                           ; 选项条序号→tipPosition: 1鼠标/2顶部/3底部/4中央
+            c.tipPosition := [1, 3, 4, 2][g.ctl_posSeg]
         case "mouseOffset":  c.tipMouseOffset  := ClampNum(g.ctl_mouseOffset.Value,  0, 100, 20)
         case "mouseAbove":   c.tipMouseAbove   := g.ctl_mouseTr.Value
         case "topOffset":    c.tipTopOffset    := ClampNum(g.ctl_topOffset.Value,    0, 500, 50)
@@ -1320,15 +1361,13 @@ SettingsReset(ctrl, *) {
     g.ctl_capsDur.Value := d.capsShowDuration
     g.ctl_copyDur.Value := d.copyShowDuration
 
-    ; Radio 显示顺序: 鼠标 / 顶部 / 底部 / 中央，对应 tipPosition 值: 1 / 3 / 4 / 2
-    g.ctl_pos1.Value := (d.tipPosition = 1)
-    g.ctl_pos2.Value := (d.tipPosition = 3)
-    g.ctl_pos3.Value := (d.tipPosition = 4)
-    g.ctl_pos4.Value := (d.tipPosition = 2)
+    ; 选项条: 鼠标 / 顶部 / 底部 / 中央，对应 tipPosition 值: 1 / 3 / 4 / 2
     g.ctl_mouseOffset.Value := d.tipMouseOffset
     g.ctl_mouseBr.Value := !d.tipMouseAbove
     g.ctl_mouseTr.Value := d.tipMouseAbove
-    g.ctl_mouseBr.Visible := g.ctl_mouseTr.Visible := (d.tipPosition = 1)
+    g.ctl_topOffset.Value := d.tipTopOffset
+    g.ctl_bottomOffset.Value := d.tipBottomOffset
+    SetPosSegment(g, PosSegOf(d.tipPosition))
     g.ctl_topOffset.Value := d.tipTopOffset
     g.ctl_bottomOffset.Value := d.tipBottomOffset
 
@@ -1357,17 +1396,8 @@ SyncConfigFromGui(g) {
     c.capsShowDuration := Max(100, Integer(g.ctl_capsDur.Value || 800))
     c.copyShowDuration := Max(100, Integer(g.ctl_copyDur.Value || 800))
 
-    ; Radio 显示顺序: 鼠标 / 顶部 / 底部 / 中央，对应 tipPosition 值: 1 / 3 / 4 / 2
-    if (g.ctl_pos1.Value)
-        c.tipPosition := 1
-    else if (g.ctl_pos2.Value)
-        c.tipPosition := 3
-    else if (g.ctl_pos3.Value)
-        c.tipPosition := 4
-    else if (g.ctl_pos4.Value)
-        c.tipPosition := 2
-    else
-        c.tipPosition := 1
+    ; 选项条序号 → tipPosition: 1鼠标/2顶部/3底部/4中央
+    c.tipPosition := [1, 3, 4, 2][g.ctl_posSeg]
 
     c.tipMouseOffset := Max(0, Min(100, Integer(g.ctl_mouseOffset.Value || 20)))
     c.tipMouseAbove := g.ctl_mouseTr.Value
