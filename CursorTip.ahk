@@ -536,7 +536,8 @@ ApplyUpdateUI(g := 0) {
     global settingsGui, g_updateState, g_updateLatestVer
     if !IsObject(g)
         g := settingsGui
-    try if !WinExist("ahk_id " . g.Hwnd)
+    ; settingsGui 已关闭/重建间隙为 ""（String），必须先挡掉再摸 .Hwnd/.ctl_*，否则类型错误崩溃
+    if !IsObject(g) || !WinExist("ahk_id " . g.Hwnd)
         return
     switch g_updateState {
         case "checking":
