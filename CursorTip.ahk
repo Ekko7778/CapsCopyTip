@@ -530,6 +530,22 @@ CurlAvailable() {
     return ok = 1
 }
 
+; 系统代理参数：curl.exe 不读 WinINET 系统代理，而国内直连 github.com 握手成功但数据面被卡死。
+; 读到启用的静态代理就拼 -x；PAC（AutoConfigURL）无法在 AHK 内求值，忽略退回直连
+SysProxyArg() {
+    try {
+        if (RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings", "ProxyEnable", 0) != 1)
+            return ""
+        srv := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings", "ProxyServer", "")
+        if (srv = "")
+            return ""
+        if RegExMatch(srv, "(?:^|;)https?=([^;]+)", &m)  ; "http=a;https=b" 形式取协议条目，纯 "host:port" 原样用
+            srv := m[1]
+        return " -x http://" . srv
+    }
+    return ""
+}
+
 ; 把更新状态机当前值渲染到设置窗口控件；g 传入时优先用（ShowSettings 重建后 Show 前恢复显示）。
 ; 窗口不在时静默跳过（timer 回调里摸已销毁控件会抛错）
 ApplyUpdateUI(g := 0) {
@@ -624,7 +640,7 @@ StartUpdateCheck(mode) {
     g_updateState := "checking"
     g_checkSilent := (mode = "silent")
     g_curlMode := "check"
-    Run('"' . A_WinDir . '\System32\curl.exe" -sfL --max-time 15 -o "' . UPD_TEMP_JSON . '" "' . UPD_API . '"', A_Temp, "Hide", &g_curlPid)
+    Run('"' . A_WinDir . '\System32\curl.exe" -sfL' . SysProxyArg() . ' --max-time 15 -o "' . UPD_TEMP_JSON . '" "' . UPD_API . '"', A_Temp, "Hide", &g_curlPid)
     g_curlStart := A_TickCount
     SetTimer(UpdatePoll, 250)
     UpdLog("check start (mode=" . mode . ", ver=" . VERSION . ")")
@@ -643,7 +659,7 @@ StartUpdateDownload() {
     url := UPD_DL_BASE . "v" . g_updateLatestVer . "/CursorTip_v" . g_updateLatestVer . ".exe"
     g_updateState := "downloading"
     g_curlMode := "download"
-    Run('"' . A_WinDir . '\System32\curl.exe" -sfSL --max-time 120 -o "' . UPD_TEMP_EXE . '" "' . url . '"', A_Temp, "Hide", &g_curlPid)
+    Run('"' . A_WinDir . '\System32\curl.exe" -sfSL' . SysProxyArg() . ' --max-time 120 -o "' . UPD_TEMP_EXE . '" "' . url . '"', A_Temp, "Hide", &g_curlPid)
     g_curlStart := A_TickCount
     SetTimer(UpdatePoll, 250)
     UpdLog("download start " . url)
